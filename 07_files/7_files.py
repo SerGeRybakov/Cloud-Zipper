@@ -2,17 +2,14 @@ from pprint import pprint
 
 
 def cookbook():
-    global cook_book
     cook_book = {}
     with open("recipes.txt", encoding="utf8") as f:
         dishes = {}
         while True:
             dish = f.readline().strip()
-            # print(1, dish)
             if not dish:
                 break
             ingredients_quantity = int(f.readline().strip())
-            # print(2, ingredients_quantity)
             ingredients_list = []
             for i in range(ingredients_quantity):
                 ingredients = f.readline().strip().split(" | ")
@@ -29,7 +26,7 @@ def cookbook():
     return cook_book
 
 
-def get_shop_list_by_dishes(dishes, person_count):
+def get_shop_list_by_dishes(dishes, person_count, cook_book):
     shop_list = {}
     for dish in dishes:
         for dic in (cook_book[dish]):
@@ -39,7 +36,8 @@ def get_shop_list_by_dishes(dishes, person_count):
                 if dic['ingredient_name'] not in shop_list.keys():
                     tmp["quantity"] = dic['quantity'] * person_count / 1000
                 else:
-                    tmp["quantity"] = shop_list[dic['ingredient_name']]['quantity'] + dic['quantity'] * person_count / 1000
+                    tmp["quantity"] = shop_list[dic['ingredient_name']]['quantity'] + dic[
+                        'quantity'] * person_count / 1000
             else:
                 tmp["measure"] = dic['measure']
                 if dic['ingredient_name'] not in shop_list.keys():
@@ -60,7 +58,7 @@ def main(cook_book):
     print("==========================")
     print("Меню:")
     print("--------------------------")
-    print("Код","-", "Наименование блюда", sep="\t")
+    print("Код", "-", "Наименование блюда", sep="\t")
     for key in commands.keys():
         print(key, "-", commands[key], sep="\t")
     print("==========================")
@@ -73,10 +71,8 @@ def main(cook_book):
         number = int(number)
         dishes.append(commands[number])
     persons = int(input("Введите количество гостей: "))
-    shop_list = get_shop_list_by_dishes(dishes, persons)
-    print()
-    pprint(shop_list)
+    shop_list = get_shop_list_by_dishes(dishes, persons, cook_book)
+    return shop_list
 
 
-
-main(cookbook())
+pprint(main(cookbook()))
