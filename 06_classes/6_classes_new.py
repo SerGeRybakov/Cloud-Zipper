@@ -11,9 +11,9 @@ class AllAnimals:
         self.name = name
         self.weight = weight
         yard_list.append(self)
-        if issubclass(Bird, AllAnimals):
+        if isinstance(self, Bird):
             birds.append(self)
-        if issubclass(Animal, AllAnimals):
+        if isinstance(self, Animal):
             animals.append(self)
 
     def feed(self):
