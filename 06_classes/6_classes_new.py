@@ -3,206 +3,97 @@ birds = []
 animals = []
 
 
-class Bird:
-    feet = 2
-    wings = 2
-    feather = True
-    movement = ("ходит", "летает")
-    eggs = True
-    food = ("трава", "семена", "червяки")
+class AllAnimals:
+    food = ""
+    voice = ""
 
     def __init__(self, name, weight):
         self.name = name
         self.weight = weight
         yard_list.append(self)
-        birds.append(self)
-
-    def feed_birds(self):
-        self.feed = self.food
-        return self.feed
-
-    def take_eggs(self):
-        self.take = self.eggs
-        return self.take
-
-    def give_voice(self):
-        pass
-
-
-class Goose(Bird):
-    movement = ("ходит", "летает", "плавает")
-    voice = ("Га-га-га", "Шшшшшшш")
-    food = "семена"
-
-    def __init__(self, name, weight):
-        super().__init__(name, weight)
+        if issubclass(Bird, AllAnimals):
+            birds.append(self)
+        if issubclass(Animal, AllAnimals):
+            animals.append(self)
 
     def feed(self):
         feed = self.food
         return feed
 
     def give_voice(self):
-        self.say_smth = self.voice
-        return self.say_smth
+        say_smth = self.voice
+        return say_smth
+
+
+class Bird(AllAnimals):
+    food = ("трава", "семена", "червяки")
+
+
+class EggBird(Bird):
+    eggs = True
 
     def take_eggs(self):
-        eggs = super().take_eggs()
-        return eggs
-
-    @property
-    def get_weight(self):
-        return self.weight
+        take = self.eggs
+        return take
 
 
-class Chicken(Bird):
-    movement = ("ходит", "летает", "прыгает", "бегает")
-    voice = ("Ко-ко-ко")
+class Goose(EggBird):
+    voice = ("Га-га-га", "Шшшшшшш")
+    food = "семена"
+
+
+class Chicken(EggBird):
+    voice = "Ко-ко-ко"
     food = ("червяки", "семена")
 
-    def __init__(self, name, weight):
-        super().__init__(name, weight)
 
-    def feed(self):
-        self.feed = self.food
-        return self.feed
-
-    def give_voice(self):
-        self.say_smth = self.voice
-        return self.say_smth
-
-    def take_eggs(self):
-        eggs = super().take_eggs()
-        return eggs
-
-    @property
-    def get_weight(self):
-        return self.weight
+class Cock(Bird):
+    voice = ("Ко-ко-ко", "Ку-ка-ре-ку")
+    food = ("червяки", "семена")
 
 
-class Duck(Bird):
-    movement = ("ходит", "летает", "прыгает", "бегает")
-    voice = ("Кря-кря")
-
-    def __init__(self, name, weight):
-        super().__init__(name, weight)
-
-    def feed(self):
-        food = super().feed_birds()
-        return food
-
-    def give_voice(self):
-        self.say_smth = self.voice
-        return self.say_smth
-
-    def take_eggs(self):
-        eggs = super().take_eggs()
-        return eggs
-
-    @property
-    def get_weight(self):
-        return self.weight
+class Duck(EggBird):
+    voice = "Кря-кря"
 
 
-class Animal:
-    feet = 4
-    wool = True
-    movement = ("ходит", "бегает")
-    milk = True
+class Animal(AllAnimals):
     food = "трава"
 
-    def __init__(self, name, weight):
-        self.name = name
-        self.weight = weight
-        yard_list.append(self)
-        animals.append(self)
 
-    def feed_animals(self):
-        self.feed = self.food
-        return self.feed
-
-    def give_voice(self):
-        pass
-
-
-class Cow(Animal):
-    voice = "Му-у-у"
-    wool = False
-
-    def __init__(self, name, weight):
-        super().__init__(name, weight)
-
-    def feed(self):
-        food = super().feed_animals()
-        return food
-
-    def give_voice(self):
-        self.say_smth = self.voice
-        return self.say_smth
+class MilkAnimal(Animal):
+    milk = True
 
     def to_milk(self):
-        self.milk_ = self.milk
-        return self.milk_
-
-    @property
-    def get_weight(self):
-        return self.weight
+        milk_ = self.milk
+        return milk_
 
 
-class Sheep(Animal):
-    voice = "Ме-е-е"
-    milk = False
-
-    def __init__(self, name, weight):
-        super().__init__(name, weight)
-
-    def feed(self):
-        food = super().feed_animals()
-        return food
-
-    def give_voice(self):
-        self.say_smth = self.voice
-        return self.say_smth
+class WoolAnimal(Animal):
+    wool = True
 
     def cut_wool(self):
-        self.cut = self.wool
-        return self.cut
-
-    @property
-    def get_weight(self):
-        return self.weight
+        cut = self.wool
+        return cut
 
 
-class Goat(Animal):
-    movement = ("ходит", "прыгает", "бегает")
+class Cow(MilkAnimal):
+    voice = "Му-у-у"
+
+
+class Sheep(WoolAnimal):
+    voice = "Ме-е-е"
+
+
+class Goat(MilkAnimal):
     voice = "Бе-е-е"
-    wool = False
-
-    def __init__(self, name, weight):
-        super().__init__(name, weight)
-
-    def feed(self):
-        food = super().feed_animals()
-        return food
-
-    def give_voice(self):
-        self.say_smth = self.voice
-        return self.say_smth
-
-    def to_milk(self):
-        self.milk_ = self.milk
-        return self.milk_
-
-    @property
-    def get_weight(self):
-        return self.weight
 
 
 def max_weight():
     pet = ""
     max_weight = 0
     for pet_ in yard_list:
-        if max_weight < pet_.get_weight:
-            max_weight = pet_.get_weight
+        if max_weight < pet_.weight:
+            max_weight = pet_.weight
             pet = pet_
     print(f"Больше всех весит {pet.name} - {max_weight} кг")
     print()
@@ -221,18 +112,20 @@ def feeding():
 def taking_eggs():
     print("СОБИРАЕМ ЯЙЦА")
     for bird in birds:
-        if bird.eggs is True:
+        if isinstance(bird, EggBird):
             if type(bird.voice) == tuple:
                 print(bird.name, bird.take_eggs(), bird.give_voice()[1])
             else:
                 print(bird.name, bird.take_eggs(), bird.give_voice())
+        else:
+            pass
     print()
 
 
 def milking():
     print("ВРЕМЯ ДОЙКИ")
     for animal in animals:
-        if animal.milk is True:
+        if isinstance(animal, MilkAnimal):
             print(animal.name, animal.to_milk(), animal.give_voice())
     print()
 
@@ -240,8 +133,13 @@ def milking():
 def cutting():
     print("ВРЕМЯ СТРИЖКИ")
     for animal in animals:
-        if animal.wool is True:
+        if isinstance(animal, WoolAnimal):
             print(animal.name, animal.cut_wool(), animal.give_voice())
+    print()
+
+
+def morning():
+    print(f"Петух {cock0.name} кричит: '{cock0.give_voice()[1]}!!!'")
     print()
 
 
@@ -251,9 +149,8 @@ goose1 = Goose("Белый", 3)
 duck0 = Duck("Кряква", 2)
 
 hen0 = Chicken("Кококо", 1.5)
-hen1 = Chicken("Кукареку", 2)
-hen1.voice = ("Ко-ко-ко", "Ку-ка-ре-ку")
-hen1.eggs = False
+
+cock0 = Cock("Кукареку", 2)
 
 cow0 = Cow("Манька", 150)
 
@@ -263,12 +160,9 @@ sheep1 = Sheep("Кудрявый", 30)
 goat0 = Goat("Рога", 31)
 goat1 = Goat("Копыта", 35)
 
-
+morning()
 milking()
 taking_eggs()
 feeding()
 cutting()
 max_weight()
-
-
-
