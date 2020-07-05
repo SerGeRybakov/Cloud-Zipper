@@ -10,7 +10,7 @@ class YaUploader:
         self.headers = {"port": "443", "Authorization": f"OAuth {token}"}
         test = r.get(self.URL, headers=self.headers)
         if test.status_code == 404:
-            creator = YaUploader.create_folder(self)
+            creator = self.create_folder()
             if creator[0] == 201:
                 print(f'Папка "{self.folder_name}" успешно создана на Яндекс.Диске')
                 print()
@@ -30,7 +30,7 @@ class YaUploader:
 
     def upload(self):
         """Метод загруджает файлы по списку file_list на яндекс диск"""
-        file_list = YaUploader._get_files_from_folder(self)
+        file_list = self._get_files_from_folder()
         message = str
 
         for file in file_list:

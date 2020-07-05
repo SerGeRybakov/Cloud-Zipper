@@ -100,7 +100,6 @@ class User:
         self.API_URL = 'https://api.vk.com/method/'
         self.params = {
             'access_token': auth.ACCESS_TOKEN,
-            # 'access_token': '18d41ffaaa5261e8eaf2bdc9d005498b9f61fe7fae75a6f9798caa79513202597f4c1ea912f6ce7c835bc',
             'v': '5.120'
         }
         self.methods = {
@@ -230,7 +229,7 @@ def give_command():
 - "mut" для поиска общих друзей,
 - "name" для вывода имени пользователя,
 - "link" для lst(),
-- "all" для add(),
+- "all_files" для add(),
 - "len" для вывода количества уже известных нам пользователей,
 
 Для завершения программы введите "exit".
@@ -241,26 +240,22 @@ def give_command():
                users_list[int(input("Укажите пользователя 2: "))-1]
 
     def print_user_name():
-        # return print(users_list[int(input("Укажите пользователя: "))-1].user())
         return users_list[int(input("Укажите пользователя: ")) - 1].user()
 
     def print_user_link():
-        # return print(users_list[int(input("Укажите пользователя: ")) - 1])
         return users_list[int(input("Укажите пользователя: "))-1]
 
     def print_all_users():
-        # return print(users_list)
         return users_list
 
     def print_len_users():
-        # return print(len(users_list))
         return len(users_list)
 
     user_commands = {
         "mut": mutual,
         "name": print_user_name,
         "link": print_user_link,
-        "all": print_all_users,
+        "all_files": print_all_users,
         "len": print_len_users,
         "exit": None
     }
