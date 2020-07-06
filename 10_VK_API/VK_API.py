@@ -165,7 +165,7 @@ class User:
         friends_list = [User(_id) for _id in ids_list]
         for _id in ids_list:
             if not ids_str:
-                ids_str = ids_str + str(_id)
+                ids_str += str(_id)
             else:
                 ids_str = ids_str + "," + str(_id)
         mut_friends_names = self.user(ids_str)
@@ -228,9 +228,9 @@ def give_command():
 Для вызова функций введите следующие команды (без кавычек):
 - "mut" для поиска общих друзей,
 - "name" для вывода имени пользователя,
-- "link" для lst(),
-- "all_files" для add(),
-- "len" для вывода количества уже известных нам пользователей,
+- "link" для вывода ссылки на профиль пользователя,
+- "all" для вывода  списка id всех известных нам пользователей,
+- "len" для вывода количества всех известных нам пользователей,
 
 Для завершения программы введите "exit".
 ==================================="""
@@ -255,7 +255,7 @@ def give_command():
         "mut": mutual,
         "name": print_user_name,
         "link": print_user_link,
-        "all_files": print_all_users,
+        "all": print_all_users,
         "len": print_len_users,
         "exit": None
     }
