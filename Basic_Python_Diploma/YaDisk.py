@@ -3,6 +3,7 @@ import os
 import zipfile
 
 import requests as r
+from tqdm import tqdm
 
 """
     Класс YaDisk - основной класс программы, содержащий в себе все методы для работы с такими сущностями Яндекс.Диска
@@ -43,26 +44,22 @@ import requests as r
      """
 
 class YaDisk:
-    all_files = []
-    all_folders = []
-
-    def __init__(self):
-        self.token = access_token
+    def __init__(self, token):
+        self.all_files = []
+        self.all_folders = []
+        self.token = token
         self.URL = f"https://cloud-api.yandex.net/v1/disk/resources"
         self.params = {"path": '/'}
         self.headers = {"port": "443", "Authorization": f"OAuth {self.token}"}
         self._parse_catalogues()
 
     def __repr__(self):
-        # В данном месте PyCharm ругается на self.name, т.к. такого атрибута у этого класса нет
-        # Однако такой атрибут есть у наследников, и на печать выводятся именно они.
-        # Поэтому, мне кажется, что наследование оправдано.
         return self.name
 
     def _parse_catalogues(self, resp=None):
         def _cat_size(resp):
             size = 0
-            for item in resp['_embedded']['items']:
+            for item in tqdm(resp['_embedded']['items']):
                 if item['type'] != "dir":
                     size += item["size"]
                 else:
@@ -75,7 +72,7 @@ class YaDisk:
             response = r.get(self.URL, params=self.params, headers=self.headers).json()
         else:
             response = resp
-        for item in response['_embedded']['items']:
+        for item in tqdm(response['_embedded']['items']):
             if item in self.all_folders or item in self.all_files:
                 continue
             else:
@@ -101,7 +98,7 @@ class YaDisk:
 
         if path is None:
             print("Текущий список папок:")
-            for num, dir in enumerate(ya.all_folders):
+            for num, dir in enumerate(self.all_folders):
                 print("dir <index>" + str(num) + ".", dir)
             print("\nЕсли вы хотите создать папку в корне диска - нажмите Enter.\n"
                   "Если вы хотите создать папку внутри другой папки - введите индекс соответствующей папки.\n")
@@ -109,7 +106,7 @@ class YaDisk:
             if not tree:
                 param = {"path": folder_name}
             else:
-                param = {"path": os.path.join(self.all_folders[int(tree)].object_realpath + "/", folder_name)}
+                param = {"path": self.all_folders[int(tree)].path + "/" + folder_name}
         else:
             param = {"path": path}
         print(param)
@@ -145,15 +142,11 @@ class YaDisk:
             elif obj_type == 'folder':
                 lst = self.all_folders
                 filename = "biggest_folder_info.json"
-        max_size = 0
-        for obj in lst:
-            if obj.size > max_size:
-                max_size = obj.size
-        for obj in lst:
-            if max_size == obj.size:
-                with open(filename, "w", encoding="UTF-8") as f:
-                    json.dump({obj.name: obj.size}, f)
-                return obj
+        max_size_object = max(lst, key=lambda obj: obj.size)
+        with open(filename, "w", encoding="UTF-8") as f:
+            json.dump({max_size_object.name: max_size_object.size}, f)
+
+        return max_size_object
 
     def delete(self, *objects):
         """метод удаляет папку или файл с яндекс.диска в корзину или навсегда"""
@@ -165,23 +158,22 @@ class YaDisk:
         if permanent == "1":
             perm_del = {"permanently": "true"}
 
-        for obj in objects:
-            param = {'path': obj.object_realpath}
+        for obj in tqdm(objects):
+            param = {'path': obj.path}
             if perm_del:
                 param.update(perm_del)
             put = r.delete(self.URL, headers=self.headers, params=param)
-            if not str(put.status_code).startswith('2'):
+            if put.status_code >= 300:
                 return put.status_code, put.json()
-            else:
-                self.reload()
+        self.reload()
 
-        for num, dir in enumerate(ya.all_folders):
+        for num, dir in enumerate(self.all_folders):
             print("dir" + str(num) + ".", dir)
         string = ''
         if len(objects) == 1:
             string = objects[0]
         elif len(objects) > 1:
-            string = f'{", ".join(objects)}'
+            string = ", ".join(objects)
 
         if perm_del:
             return f'Объекты {string} успешно удалены с Яндекс.Диска.'
@@ -190,16 +182,14 @@ class YaDisk:
 
     def download(self, item):
         target_folder = 'downloads'
-        if os.path.exists(target_folder) is False:
+        if not os.path.exists(target_folder):
             os.mkdir(target_folder)
         try:
             if item.type == 'dir':
-                target_folder = os.path.join(target_folder, item.object_realpath.split('disk:/')[-1])
-                if os.path.exists(target_folder) is False:
+                target_folder = os.path.join(target_folder, item.path.split('disk:/')[-1])
+                if not os.path.exists(target_folder):
                     os.mkdir(target_folder)
-                    target_folder = os.path.abspath(target_folder)
-                else:
-                    target_folder = os.path.abspath(target_folder)
+                target_folder = os.path.abspath(target_folder)
             else:
                 target_folder = os.path.abspath(target_folder)
                 file_to_download = r.get(item.link)
@@ -208,19 +198,17 @@ class YaDisk:
         except (KeyError, AttributeError):
             if item['type'] == 'dir':
                 target_folder = os.path.join(target_folder, item['path'].split('disk:/')[-1])
-                if os.path.exists(target_folder) is False:
+                if not os.path.exists(target_folder):
                     os.mkdir(target_folder)
-                    target_folder = os.path.abspath(target_folder)
-                else:
-                    target_folder = os.path.abspath(target_folder)
+                target_folder = os.path.abspath(target_folder)
         try:
-            param = {'path': item.object_realpath}
+            param = {'path': item.path}
         except (KeyError, AttributeError):
             param = {'path': item['path']}
 
         response = r.get(self.URL, params=param, headers=self.headers).json()
         try:
-            for new_item in response['_embedded']['items']:
+            for new_item in tqdm(response['_embedded']['items']):
                 if new_item['type'] == 'dir':
                     self.download(new_item)
                 else:
@@ -243,7 +231,7 @@ class YaDisk:
             elif obj_type == 'folder':
                 collection = self.all_folders
             for num, file in enumerate(collection):
-                print(obj_type + " " + str(num) + ".", file)
+                print(obj_type + " " + str(num) + ".", file, file.size)
         return collection
 
     def reload(self):
@@ -261,59 +249,64 @@ class YaDisk:
                 collection = self.all_files
             elif obj_type == 'folder':
                 collection = self.all_folders
-            size_list = {}
-            for file in collection:
-                size_list[file.name] = file.size
-            values_list = list(set(size_list.values()))
-            values_list.sort(reverse=True)
-            top_10_nums = tuple(values_list[:10])
+            top10 = sorted(collection, key=lambda obj: obj.size, reverse=True)[:10]
             top_10 = []
-            for num, i in enumerate(top_10_nums, start=1):
-                for keys, values in size_list.items():
-                    if i == values:
-                        size = int(round(values / 1024, 0))
-                        if size > 100000:
-                            size = str(round(size / 1024 ** 2, 2)) + " GB"
-                        elif 100000 > size > 1000:
-                            size = str(round(size / 1024, 2)) + " MB"
-                        else:
-                            size = str(size) + " KB"
-                        top_10.append(f'{num}. {keys}, {size}')
+            for num, i in enumerate(top10, start=1):
+                size = int(round(i.size / 1024, 0))
+                if size > 100000:
+                    size = str(round(size / 1024 ** 2, 2)) + " GB"
+                elif 100000 > size > 1000:
+                    size = str(round(size / 1024, 2)) + " MB"
+                else:
+                    size = str(size) + " KB"
+                top_10.append(f'{num}. {i}, {size}')
             print(*top_10, sep="\n", end='\n\n')
             return top_10
 
     def upload(self, object):
         """Метод загруджает файлы по списку file_list на яндекс диск"""
 
+        print(object)
         object_full_path = ''
         folder_scan = os.walk(os.path.curdir)
         for root, dirs, files in folder_scan:
-            for file in files:
-                if object == file:
-                    object_full_path = os.path.join(root, object)
-
+            for dir in dirs:
+                if object == dir:
+                    object_full_path = os.path.join(root, dir)
+            else:
+                for file in files:
+                    if object == file:
+                        object_full_path = os.path.join(root, file)
+        print(object_full_path)
         ya_disk_path = "disk:/"
         object_realpath = object_full_path.split('.\\')[1]
+        print(object_realpath)
         folder_path = object_full_path.split(object)[0].replace("\\", "/")
-        target_folder_path = ya_disk_path + object_realpath.replace("\\", "/").split("/" + object)[0]
-        folder_name = os.path.basename(target_folder_path)
-        target_path = ya_disk_path + object_realpath.replace("\\", "/")
-
-        paths = {dir.path for dir in self.all_folders}
-        if target_folder_path in paths:
-            pass
+        if not os.path.isdir(object_realpath):
+            target_folderpath = ya_disk_path + object_realpath.replace("\\", "/").split("/" + object)[0]
         else:
-            self.create_folder(folder_name, target_folder_path)
+            target_folderpath = ya_disk_path + object
+        # print(10000, target_folderpath)
+        folder_name = os.path.basename(target_folderpath)
+        # target_path = ya_disk_path + target_folderpath
+        # print(target_path)
+        paths = {dir.path for dir in self.all_folders}
+        if os.path.isdir(object_realpath):
+            if target_folderpath in paths:
+                pass
+            else:
+                self.create_folder(folder_name, target_folderpath)
 
         message = str
-        if os.path.isdir(object) is True:
-            file_list = os.listdir(os.path.abspath(folder_path))
+        if os.path.isdir(object_full_path):
+            file_list = os.listdir(object_full_path)
+            print(file_list)
             for file in file_list:
                 try:
-                    param = {'path': target_path}
+                    param = {'path': target_folderpath + "/" + file}
                     upload_url = r.get(self.URL + '/upload', params=param, headers=self.headers).json()
-                    with open(object_full_path, "rb") as f:
-                        r.put(upload_url['href'], data=f)
+                    with open(os.path.join(object_full_path, file), "rb") as f:
+                        tqdm(r.put(upload_url['href'], data=f))
                         print(f'Файл "{file}" успешно загружен на Яндекс.Диск')
                     message = f"\n======\n\n" \
                               f"Все файлы из папки {folder_path} успешно загружены на Яндекс.Диск"
@@ -345,7 +338,7 @@ class YaDisk:
         base_path = "downloads"
         full_name = item.name
         name = os.path.splitext(full_name)[0]
-        path = item.object_realpath.split('disk:/')[1]
+        path = item.path.split('disk:/')[1]
         with zipfile.ZipFile(os.path.join(base_path, name) + '.zip', "w") as fzip:
             if "." in item.name:
                 fzip.write(filename=os.path.join(base_path, full_name), arcname=full_name)
@@ -396,17 +389,21 @@ class YaFolder(YaDisk):
 
 
 if __name__ == '__main__':
-    access_token = input("Введите токен Яндекс.Диска: ")
-    ya = YaDisk()
+    # access_token = input("Введите токен Яндекс.Диска: ")
+    access_token = "AgAAAABCqug7AADLWzOfyZvGvUIFtKRDuWJAUxI"
+    ya = YaDisk(access_token)
+
     # ya.print_all("file")
     # ya.print_all("folder")
+
+    # print(ya.all_files[14].path)
 
     # print(ya.delete(ya.all_files[13:]))
     # print(ya.delete(ya.all_folders[int(input("Введите индекс папки для удаления: "))]))
 
     # ya.top10('file')
     # ya.top10('folder')
-
+    #
     # biggest_file = ya.find_biggest('file')
     # biggest_folder = ya.find_biggest('folder')
     # print(biggest_file)
@@ -421,4 +418,6 @@ if __name__ == '__main__':
     # print(arch_folder)
 
     # ya.create_folder("test")
-    print(ya.upload("test.txt"))
+    print(ya.upload("271138000"))
+    # print(ya.upload("test1.txt"))
+

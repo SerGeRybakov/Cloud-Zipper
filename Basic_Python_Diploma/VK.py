@@ -1,10 +1,14 @@
+import datetime
+import json
+import os
+import time
+from pprint import pprint
+
+import requests
 from selenium import webdriver
 from selenium.webdriver.common.action_chains import ActionChains
-import requests
-import json
-import datetime
-import time
-import random
+
+from Basic_Python_Diploma import YaDisk_tmp
 
 users_list = []
 
@@ -108,6 +112,10 @@ class User:
                         'areFriends': 'friends.areFriends?',
                         'getMutual': 'friends.getMutual?',
                         },
+            'photos': {'get': 'photos.get?',
+                       'areFriends': 'friends.areFriends?',
+                       'getMutual': 'friends.getMutual?',
+                       },
 
         }
 
@@ -155,7 +163,7 @@ class User:
             'target_uid': friend,
         }
         mutual_friends_params.update(self.params)
-        ids_list = requests.get(user1.API_URL + self.methods['friends']['getMutual'],
+        ids_list = requests.get(self.API_URL + self.methods['friends']['getMutual'],
                                 params=mutual_friends_params).json()['response']
 
         ids_str = ''
@@ -178,6 +186,35 @@ class User:
         print(*friends_list, sep="\t")
         print()
 
+    def get_photos(self):
+        param = {"album_id": "profile", "photo_sizes": "w", "type": "z", 'extended': 1, "owner_id": self.id}
+        param.update(self.params)
+        photos_list = requests.get(self.API_URL + self.methods['photos']['get'],
+                                   params=param).json()['response']["items"][-5:]
+        # pprint(photos_list)
+        for photo in photos_list:
+            self.download(photo)
+
+    def download(self, item):
+        target_folder = 'downloads'
+        if not os.path.exists(target_folder):
+            os.mkdir(target_folder)
+        target_folder = os.path.join(target_folder, str(self.id))
+        if not os.path.exists(target_folder):
+            os.mkdir(target_folder)
+        target_folder = os.path.abspath(target_folder)
+        file_to_download = requests.get(item["sizes"][-1]['url'])
+        with open(os.path.join(target_folder,
+                               str(item['likes']["count"]) + "_" +
+                               str(datetime.datetime.fromtimestamp(item["date"]).date()) + ".jpg"),
+                  'wb') as f:
+            f.write(file_to_download.content)
+
+
+        print(os.path.basename(target_folder))
+        token = "AgAAAABCqug7AADLWzOfyZvGvUIFtKRDuWJAUxI"
+        ya = YaDisk_tmp.YaDisk(token)
+        ya.upload(os.path.basename(target_folder))
 
 def check_token():
     with open("access_token.json") as file:
@@ -196,88 +233,89 @@ def check_token():
         return auth_
 
 
-def intro():
-    print(f"Сейчас в списке сущностей класса USER имеются следующие id: {users_list}.\n")
-    print(f"Первый в списке у нас {user0.user()}.")
-    print(user0, '\n')
+# def intro():
+#     print(f"Сейчас в списке сущностей класса USER имеются следующие id: {users_list}.\n")
+#     print(f"Первый в списке у нас {user0.user()}.")
+#     print(user0, '\n')
+#
+#     print(f"Второй - конечно же {user1.user()}. Куда ж без него...")
+#     print(user1, '\n')
+#     time.sleep(1)
+#     print("Давайте посмотрим, есть ли у них общие друзья?")
+#     user0 & user1
+#     number = random.randint(2, len(users_list) - 1)
+#     print(f"И сейчас в списке сущностей класса USER уже {len(users_list)} id: {users_list}.\n")
+#     time.sleep(1)
+#     print(f"Давайте узнаем, кто в нашем списке значится, например, под номером {number+1}?")
+#     print(f"И это - {users_list[number].user()}, {users_list[number]}!\n")
+#
+#     print("Отлично!\nТеперь вы можете сами вводить команды.")
+#     print("Не забывайте заглядывать в users_list ради интереса.\n")
 
-    print(f"Второй - конечно же {user1.user()}. Куда ж без него...")
-    print(user1, '\n')
-    time.sleep(1)
-    print("Давайте посмотрим, есть ли у них общие друзья?")
-    user0 & user1
-    number = random.randint(2, len(users_list) - 1)
-    print(f"И сейчас в списке сущностей класса USER уже {len(users_list)} id: {users_list}.\n")
-    time.sleep(1)
-    print(f"Давайте узнаем, кто в нашем списке значится, например, под номером {number+1}?")
-    print(f"И это - {users_list[number].user()}, {users_list[number]}!\n")
 
-    print("Отлично!\nТеперь вы можете сами вводить команды.")
-    print("Не забывайте заглядывать в users_list ради интереса.\n")
-
-
-def give_command():
-    """===================================
-Вы можете найти общих друзей у любых пользователей, находящихся в списке пользователей "users_list".
-В функциях, требующих указания пользователя(-ей), необходимо указать индекс в списке пользователей "users_list".
-Так как отсчёт индекса проще всего вести с единицы, а не с нуля, то так и считайте.
-
-Для вызова функций введите следующие команды (без кавычек):
-- "mut" для поиска общих друзей,
-- "name" для вывода имени пользователя,
-- "link" для вывода ссылки на профиль пользователя,
-- "all" для вывода  списка id всех известных нам пользователей,
-- "len" для вывода количества всех известных нам пользователей,
-
-Для завершения программы введите "exit".
-==================================="""
-
-    def mutual():
-        return users_list[int(input("Укажите пользователя 1: "))-1] & \
-               users_list[int(input("Укажите пользователя 2: "))-1]
-
-    def print_user_name():
-        return users_list[int(input("Укажите пользователя: ")) - 1].user()
-
-    def print_user_link():
-        return users_list[int(input("Укажите пользователя: "))-1]
-
-    def print_all_users():
-        return users_list
-
-    def print_len_users():
-        return len(users_list)
-
-    user_commands = {
-        "mut": mutual,
-        "name": print_user_name,
-        "link": print_user_link,
-        "all": print_all_users,
-        "len": print_len_users,
-        "exit": None
-    }
-
-    command = None
-    print(give_command.__doc__)
-    print()
-
-    while command != "exit":
-        command = None
-        while command not in user_commands.keys():
-            command = input("Введите команду: ")
-        else:
-            if command == "exit":
-                print()
-                print("Работа программы завершена")
-                break
-            else:
-                print(user_commands[command]())
-                print()
+# def give_command():
+#     """===================================
+# Вы можете найти общих друзей у любых пользователей, находящихся в списке пользователей "users_list".
+# В функциях, требующих указания пользователя(-ей), необходимо указать индекс в списке пользователей "users_list".
+# Так как отсчёт индекса проще всего вести с единицы, а не с нуля, то так и считайте.
+#
+# Для вызова функций введите следующие команды (без кавычек):
+# - "mut" для поиска общих друзей,
+# - "name" для вывода имени пользователя,
+# - "link" для вывода ссылки на профиль пользователя,
+# - "all" для вывода  списка id всех известных нам пользователей,
+# - "len" для вывода количества всех известных нам пользователей,
+#
+# Для завершения программы введите "exit".
+# ==================================="""
+#
+#     def mutual():
+#         return users_list[int(input("Укажите пользователя 1: "))-1] & \
+#                users_list[int(input("Укажите пользователя 2: "))-1]
+#
+#     def print_user_name():
+#         return users_list[int(input("Укажите пользователя: ")) - 1].user()
+#
+#     def print_user_link():
+#         return users_list[int(input("Укажите пользователя: "))-1]
+#
+#     def print_all_users():
+#         return users_list
+#
+#     def print_len_users():
+#         return len(users_list)
+#
+#     user_commands = {
+#         "mut": mutual,
+#         "name": print_user_name,
+#         "link": print_user_link,
+#         "all": print_all_users,
+#         "len": print_len_users,
+#         "exit": None
+#     }
+#
+#     command = None
+#     print(give_command.__doc__)
+#     print()
+#
+#     while command != "exit":
+#         command = None
+#         while command not in user_commands.keys():
+#             command = input("Введите команду: ")
+#         else:
+#             if command == "exit":
+#                 print()
+#                 print("Работа программы завершена")
+#                 break
+#             else:
+#                 print(user_commands[command]())
+#                 print()
 
 
 if __name__ == '__main__':
     auth = check_token()
-    user0 = User(273251945)
+    # user0 = User(273251945)
     user1 = User(271138000)
-    intro()
-    give_command()
+    # intro()
+    # give_command()
+    user1.get_photos()
