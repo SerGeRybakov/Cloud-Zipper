@@ -1,8 +1,8 @@
 import json
 import os
 import zipfile
-
-import requests as r
+from datetime import datetime
+import requests
 from tqdm import tqdm
 
 """
@@ -48,7 +48,7 @@ class YaDisk:
         self.all_files = []
         self.all_folders = []
         self.token = token
-        self.URL = f"https://cloud-api.yandex.net/v1/disk/resources"
+        self.URL = "https://cloud-api.yandex.net/v1/disk/resources"
         self.params = {"path": '/'}
         self.headers = {"port": "443", "Authorization": f"OAuth {self.token}"}
         self._parse_catalogues()
@@ -59,26 +59,26 @@ class YaDisk:
     def _parse_catalogues(self, resp=None):
         def _cat_size(resp):
             size = 0
-            for item in tqdm(resp['_embedded']['items']):
+            for item in resp['_embedded']['items']:
                 if item['type'] != "dir":
                     size += item["size"]
                 else:
                     param = {"path": item["path"]}
-                    new_resp = r.get(self.URL, params=param, headers=self.headers).json()
+                    new_resp = requests.get(self.URL, params=param, headers=self.headers).json()
                     size += _cat_size(new_resp)
             return size
 
         if resp is None:
-            response = r.get(self.URL, params=self.params, headers=self.headers).json()
+            response = requests.get(self.URL, params=self.params, headers=self.headers).json()
         else:
             response = resp
-        for item in tqdm(response['_embedded']['items']):
+        for item in response['_embedded']['items']:
             if item in self.all_folders or item in self.all_files:
                 continue
             else:
                 if item['type'] == "dir":
                     param = {"path": item["path"]}
-                    response = r.get(self.URL, params=param, headers=self.headers).json()
+                    response = requests.get(self.URL, params=param, headers=self.headers).json()
                     self._parse_catalogues(response)
                     folder_size = {"size": _cat_size(response)}
                     item.update(folder_size)
@@ -90,7 +90,7 @@ class YaDisk:
         """метод создает папку на яндекс.диске с заданным именем"""
 
         def _create(_param):
-            put = r.put(self.URL, headers=self.headers, params=_param)
+            put = requests.put(self.URL, headers=self.headers, params=_param)
             try:
                 return put.status_code, put.json()["href"]
             except KeyError:
@@ -110,7 +110,7 @@ class YaDisk:
         else:
             param = {"path": path}
         print(param)
-        test = r.get(self.URL, headers=self.headers, params=param)
+        test = requests.get(self.URL, headers=self.headers, params=param)
         if test.status_code == 404:
             creator = _create(param)
             if creator[0] == 201:
@@ -158,11 +158,11 @@ class YaDisk:
         if permanent == "1":
             perm_del = {"permanently": "true"}
 
-        for obj in tqdm(objects):
+        for obj in objects:
             param = {'path': obj.path}
             if perm_del:
                 param.update(perm_del)
-            put = r.delete(self.URL, headers=self.headers, params=param)
+            put = requests.delete(self.URL, headers=self.headers, params=param)
             if put.status_code >= 300:
                 return put.status_code, put.json()
         self.reload()
@@ -192,7 +192,7 @@ class YaDisk:
                 target_folder = os.path.abspath(target_folder)
             else:
                 target_folder = os.path.abspath(target_folder)
-                file_to_download = r.get(item.link)
+                file_to_download = requests.get(item.link)
                 with open(os.path.join(target_folder, item.name), 'wb') as f:
                     f.write(file_to_download.content)
         except (KeyError, AttributeError):
@@ -206,17 +206,17 @@ class YaDisk:
         except (KeyError, AttributeError):
             param = {'path': item['path']}
 
-        response = r.get(self.URL, params=param, headers=self.headers).json()
+        response = requests.get(self.URL, params=param, headers=self.headers).json()
         try:
-            for new_item in tqdm(response['_embedded']['items']):
+            for new_item in response['_embedded']['items']:
                 if new_item['type'] == 'dir':
                     self.download(new_item)
                 else:
-                    file_to_download = r.get(new_item["file"])
+                    file_to_download = requests.get(new_item["file"])
                     with open(os.path.join(target_folder, new_item["name"]), 'wb') as f:
                         f.write(file_to_download.content)
         except KeyError:
-            file_to_download = r.get(response["file"])
+            file_to_download = requests.get(response["file"])
             with open(os.path.join(target_folder, response["name"]), 'wb') as f:
                 f.write(file_to_download.content)
 
@@ -263,75 +263,144 @@ class YaDisk:
             print(*top_10, sep="\n", end='\n\n')
             return top_10
 
-    def upload(self, object):
-        """Метод загруджает файлы по списку file_list на яндекс диск"""
-
-        print(object)
-        object_full_path = ''
-        folder_scan = os.walk(os.path.curdir)
-        for root, dirs, files in folder_scan:
-            for dir in dirs:
-                if object == dir:
-                    object_full_path = os.path.join(root, dir)
-            else:
-                for file in files:
-                    if object == file:
-                        object_full_path = os.path.join(root, file)
-        print(object_full_path)
-        ya_disk_path = "disk:/"
-        object_realpath = object_full_path.split('.\\')[1]
-        print(object_realpath)
-        folder_path = object_full_path.split(object)[0].replace("\\", "/")
-        if not os.path.isdir(object_realpath):
-            target_folderpath = ya_disk_path + object_realpath.replace("\\", "/").split("/" + object)[0]
-        else:
-            target_folderpath = ya_disk_path + object
-        # print(10000, target_folderpath)
-        folder_name = os.path.basename(target_folderpath)
-        # target_path = ya_disk_path + target_folderpath
-        # print(target_path)
-        paths = {dir.path for dir in self.all_folders}
-        if os.path.isdir(object_realpath):
-            if target_folderpath in paths:
-                pass
-            else:
-                self.create_folder(folder_name, target_folderpath)
-
-        message = str
-        if os.path.isdir(object_full_path):
-            file_list = os.listdir(object_full_path)
-            print(file_list)
+    def upload(self, object, url=None):
+        """Метод загруджает на яндекс диск файлы и папки с компьютера, а также фотографии из сети, имеющие URL."""
+        def _upload_folder(folder_path):
+            file_list = os.listdir(folder_path)
+            message = str
             for file in file_list:
                 try:
-                    param = {'path': target_folderpath + "/" + file}
-                    upload_url = r.get(self.URL + '/upload', params=param, headers=self.headers).json()
-                    with open(os.path.join(object_full_path, file), "rb") as f:
-                        tqdm(r.put(upload_url['href'], data=f))
+                    param = {"path": f"{folder_path}/{file}"}
+                    full_path = os.path.join(folder_path, file)
+                    upload_url = requests.get(self.URL, headers=self.headers, params=param).json()["href"]
+                    with open(full_path, "rb") as f:
+                        requests.put(upload_url, data=f)
                         print(f'Файл "{file}" успешно загружен на Яндекс.Диск')
                     message = f"\n======\n\n" \
-                              f"Все файлы из папки {folder_path} успешно загружены на Яндекс.Диск"
+                              f"Все файлы из папки {folder_name} успешно загружены на Яндекс.Диск"
                 except KeyError:
+
                     print(f'Файл "{file}" был ранее загружен на Яндекс.Диск')
                     message = (f'\n======\n\n'
-                               f'Все файлы из папки {folder_path} загружены на Яндекс.Диск')
+                               f'Все файлы из папки {folder_name} загружены на Яндекс.Диск')
 
-        else:
+        def _upload_file():
             try:
-                param = {'path': target_path}
-                upload_url = r.get(self.URL + '/upload', params=param, headers=self.headers).json()
-                with open(object_full_path, "rb") as f:
-                    r.put(upload_url['href'], data=f)
-                    print(f'Файл "{object}" успешно загружен на Яндекс.Диск')
+                param = {"path": f"{folder_path}/{file}"}
+                full_path = os.path.join(folder_path, file)
+                upload_url = requests.get(self.URL, headers=self.headers, params=param).json()["href"]
+                with open(full_path, "rb") as f:
+                    requests.put(upload_url, data=f)
+                    print(f'Файл "{file}" успешно загружен на Яндекс.Диск')
                 message = f"\n======\n\n" \
-                          f"Все файлы из папки {folder_path} успешно загружены на Яндекс.Диск"
+                          f"Все файлы из папки {folder_name} успешно загружены на Яндекс.Диск"
             except KeyError:
-                print(f'Файл "{object}" был ранее загружен на Яндекс.Диск')
-                message = (f'\n======\n\n'
-                           f'Все файлы из папки {folder_path} загружены на Яндекс.Диск')
-        self.reload()
-        self.print_all("file")
-        self.print_all("folder")
-        return message
+
+                print(f'Файл "{file}" был ранее загружен на Яндекс.Диск')
+
+        def _upload_url(url, likes, date):
+            date = str(datetime.fromtimestamp(date).date())
+            param = {"path": target_folderpath + "/" + str(likes) + "_" + date + ".jpg", "url": url}
+            return requests.post(self.URL+"/upload", headers=self.headers, params=param)
+
+        def _check_folder_existanse(folder_name, target_folderpath):
+            param = {"path": target_folderpath}
+            test = requests.get(self.URL, headers=self.headers, params=param)
+            if test.status_code == 404:
+                folder = target_folderpath.split("/")[0]
+                param = {"path": folder}
+                test = requests.get(self.URL, headers=self.headers, params=param)
+                if test.status_code == 404:
+                    folder_name = folder.split("/")[-1]
+                    self.create_folder(folder_name, folder)
+                    folder_name = target_folderpath.split("/")[1]
+                    self.create_folder(folder_name, target_folderpath)
+                else:
+                    self.create_folder(folder_name, target_folderpath)
+
+        if len(object) == 2:
+            folder = "vk_photo"
+            folder_name = object[1]
+            target_folderpath = folder + "/" + folder_name
+            _check_folder_existanse(folder_name, target_folderpath)
+            for url, likes, date in object[0]:
+                up = _upload_url(url, likes, date)
+        else:
+            object_full_path = str
+            if os.path.exists(os.path.abspath(object)):
+                object_full_path = os.path.join('.', object)
+            else:
+                folder_scan = os.walk(os.path.curdir)
+                for root, dirs, files in folder_scan:
+                    for dir in dirs:
+                        if object == dir:
+                            object_full_path = os.path.join(root, dir)
+                    else:
+                        for file in files:
+                            if object == file:
+                                object_full_path = os.path.join(root, file)
+            print(100, object_full_path)
+            object_realpath = object_full_path.split('.\\')[1]
+            print(1000, object_realpath)
+            folder_name = object
+            target_folderpath = object_realpath.replace("\\", "/")
+            _check_folder_existanse(folder_name, target_folderpath)
+            if os.path.isdir(object_full_path):
+                up = _upload_folder(target_folderpath)
+            else:
+                folder_path = object_full_path.split(object)[0].replace("\\", "/")
+                print(folder_path)
+                up = _upload_file()
+
+
+        # if not os.path.isdir(object_realpath):
+        #     target_folderpath = ya_disk_path + object_realpath.replace("\\", "/").split("/" + object)[0]
+        # else:
+        #     target_folderpath = ya_disk_path + object
+        # # print(10000, target_folderpath)
+        # folder_name = os.path.basename(target_folderpath)
+        # # target_path = ya_disk_path + target_folderpath
+        # # print(target_path)
+        # paths = {dir.path for dir in self.all_folders}
+        # if os.path.isdir(object_realpath):
+        #     if target_folderpath in paths:
+        #         pass
+        #     else:
+        #         self.create_folder(folder_name, target_folderpath)
+        #
+        # message = str
+        # if os.path.isdir(object_full_path):
+        #     file_list = os.listdir(object_full_path)
+        #     print(file_list)
+        #     for file in file_list:
+        #         try:
+        #             param = {'path': target_folderpath + "/" + file}
+        #             upload_url = requests.get(self.URL + '/upload', params=param, headers=self.headers).json()
+        #             with open(os.path.join(object_full_path, file), "rb") as f:
+        #                 requests.put(upload_url['href'], data=f)
+        #                 print(f'Файл "{file}" успешно загружен на Яндекс.Диск')
+        #             message = f"\n======\n\n" \
+        #                       f"Все файлы из папки {folder_path} успешно загружены на Яндекс.Диск"
+        #         except KeyError:
+        #             print(f'Файл "{file}" был ранее загружен на Яндекс.Диск')
+        #             message = (f'\n======\n\n'
+        #                        f'Все файлы из папки {folder_path} загружены на Яндекс.Диск')
+        #
+        # else:
+        #     try:
+        #         param = {'path': target_folderpath}
+        #         upload_url = requests.get(self.URL + '/upload', params=param, headers=self.headers).json()
+        #         with open(object_full_path, "rb") as f:
+        #             requests.put(upload_url['href'], data=f)
+        #             print(f'Файл "{object}" успешно загружен на Яндекс.Диск')
+        #         message = f"\n======\n\n" \
+        #                   f"Все файлы из папки {folder_path} успешно загружены на Яндекс.Диск"
+        #     except KeyError:
+        #         print(f'Файл "{object}" был ранее загружен на Яндекс.Диск')
+        #         message = (f'\n======\n\n'
+        #                    f'Все файлы из папки {folder_path} загружены на Яндекс.Диск')
+        #
+        # return message
 
     @staticmethod
     def zip_file(item):
@@ -386,38 +455,3 @@ class YaFolder(YaDisk):
         self.type = item['type']
         self.revision = item['revision']
         self.size = item['size']
-
-
-if __name__ == '__main__':
-    # access_token = input("Введите токен Яндекс.Диска: ")
-    access_token = "AgAAAABCqug7AADLWzOfyZvGvUIFtKRDuWJAUxI"
-    ya = YaDisk(access_token)
-
-    # ya.print_all("file")
-    # ya.print_all("folder")
-
-    # print(ya.all_files[14].path)
-
-    # print(ya.delete(ya.all_files[13:]))
-    # print(ya.delete(ya.all_folders[int(input("Введите индекс папки для удаления: "))]))
-
-    # ya.top10('file')
-    # ya.top10('folder')
-    #
-    # biggest_file = ya.find_biggest('file')
-    # biggest_folder = ya.find_biggest('folder')
-    # print(biggest_file)
-    # print(biggest_folder)
-
-    # ya.download(biggest_file)
-    # ya.download(biggest_folder)
-
-    # arch_file = ya.zip_file(biggest_file)
-    # print(arch_file)
-    # arch_folder = ya.zip_file(biggest_folder)
-    # print(arch_folder)
-
-    # ya.create_folder("test")
-    print(ya.upload("271138000"))
-    # print(ya.upload("test1.txt"))
-

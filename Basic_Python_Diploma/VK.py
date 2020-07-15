@@ -7,9 +7,8 @@ from pprint import pprint
 import requests
 from selenium import webdriver
 from selenium.webdriver.common.action_chains import ActionChains
-from tqdm import tqdm
 
-import YaDisk_tmp
+import runner
 
 users_list = []
 
@@ -99,12 +98,12 @@ class VKAPIAuth:
 
 
 class User:
-    def __init__(self, _id: int):
+    def __init__(self, _id: int, token: str):
         self.id = _id
         self.URL = 'https://vk.com/id'
         self.API_URL = 'https://api.vk.com/method/'
         self.params = {
-            'access_token': auth.ACCESS_TOKEN,
+            'access_token': token,
             'v': '5.120'
         }
         self.methods = {
@@ -181,8 +180,7 @@ class User:
             mut_friends_names_list.append(name)
         print(f'{self.user()} и {User(friend).user()} имеют {len(mut_friends_names_list)} общих друзей:')
         print(*mut_friends_names_list, sep=", ")
-        print(f'Все они являются сущностями и хранятся в списке "users_list" '
-              f'(также как {user0.user()} и {user1.user()}).')
+        print(f'Все они являются сущностями и хранятся в списке "users_list".')
         print(f'А вот список ссылок на их профили. ')
         print(*friends_list, sep="\t")
         print()
@@ -192,11 +190,10 @@ class User:
         param.update(self.params)
         photos_list = requests.get(self.API_URL + self.methods['photos']['get'],
                                    params=param).json()['response']["items"][-5:]
-        pprint(photos_list)
-        for photo in tqdm(photos_list):
-            target = self.download(photo)
-        tqdm(ya.upload(os.path.basename(target)))
-        ya.reload()
+        # pprint(photos_list)
+        url_list = [(photo["sizes"][-1]['url'], photo['likes']["count"], photo["date"]) for photo in photos_list]
+        return url_list, self.user()
+
 
     def download(self, item):
         target_folder = 'downloads'
@@ -212,116 +209,5 @@ class User:
                                str(datetime.fromtimestamp(item["date"]).date()) + ".jpg"),
                   'wb') as f:
             f.write(file_to_download.content)
-
-
         print(os.path.basename(target_folder))
-        return target_folder
-
-
-
-
-def check_token():
-    with open("access_token.json") as file:
-        access_key_dict = json.load(file)
-    if access_key_dict['expires_in'] <= now:
-        print("\n!!!!!!!!!!!!!!!!!!!!!!!!!")
-        print("Для работы программы необходимо ввести данные для авторизации в Вашей учётной записи ВКонтакте.\n")
-        print("Данные запрашиваются только в случае необходимости получения валидного ключа доступа от ВКонтакте.\n")
-        print("Вводимые учётные данные нигде не сохраняются, не передаются никуда, кроме сервиса ВКонтакте и "
-              "используются только во время работы программы.")
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!")
-        auth_ = VKAPIAuth(login=input("\nВведите логин (номер телефона/e-mail): "), password=input("Введите пароль: "))
-        return auth_
-    else:
-        auth_ = VKAPIAuth()
-        return auth_
-
-
-# def intro():
-#     print(f"Сейчас в списке сущностей класса USER имеются следующие id: {users_list}.\n")
-#     print(f"Первый в списке у нас {user0.user()}.")
-#     print(user0, '\n')
-#
-#     print(f"Второй - конечно же {user1.user()}. Куда ж без него...")
-#     print(user1, '\n')
-#     time.sleep(1)
-#     print("Давайте посмотрим, есть ли у них общие друзья?")
-#     user0 & user1
-#     number = random.randint(2, len(users_list) - 1)
-#     print(f"И сейчас в списке сущностей класса USER уже {len(users_list)} id: {users_list}.\n")
-#     time.sleep(1)
-#     print(f"Давайте узнаем, кто в нашем списке значится, например, под номером {number+1}?")
-#     print(f"И это - {users_list[number].user()}, {users_list[number]}!\n")
-#
-#     print("Отлично!\nТеперь вы можете сами вводить команды.")
-#     print("Не забывайте заглядывать в users_list ради интереса.\n")
-
-
-# def give_command():
-#     """===================================
-# Вы можете найти общих друзей у любых пользователей, находящихся в списке пользователей "users_list".
-# В функциях, требующих указания пользователя(-ей), необходимо указать индекс в списке пользователей "users_list".
-# Так как отсчёт индекса проще всего вести с единицы, а не с нуля, то так и считайте.
-#
-# Для вызова функций введите следующие команды (без кавычек):
-# - "mut" для поиска общих друзей,
-# - "name" для вывода имени пользователя,
-# - "link" для вывода ссылки на профиль пользователя,
-# - "all" для вывода  списка id всех известных нам пользователей,
-# - "len" для вывода количества всех известных нам пользователей,
-#
-# Для завершения программы введите "exit".
-# ==================================="""
-#
-#     def mutual():
-#         return users_list[int(input("Укажите пользователя 1: "))-1] & \
-#                users_list[int(input("Укажите пользователя 2: "))-1]
-#
-#     def print_user_name():
-#         return users_list[int(input("Укажите пользователя: ")) - 1].user()
-#
-#     def print_user_link():
-#         return users_list[int(input("Укажите пользователя: "))-1]
-#
-#     def print_all_users():
-#         return users_list
-#
-#     def print_len_users():
-#         return len(users_list)
-#
-#     user_commands = {
-#         "mut": mutual,
-#         "name": print_user_name,
-#         "link": print_user_link,
-#         "all": print_all_users,
-#         "len": print_len_users,
-#         "exit": None
-#     }
-#
-#     command = None
-#     print(give_command.__doc__)
-#     print()
-#
-#     while command != "exit":
-#         command = None
-#         while command not in user_commands.keys():
-#             command = input("Введите команду: ")
-#         else:
-#             if command == "exit":
-#                 print()
-#                 print("Работа программы завершена")
-#                 break
-#             else:
-#                 print(user_commands[command]())
-#                 print()
-
-
-if __name__ == '__main__':
-    auth = check_token()
-    user0 = User(273251945)
-    user1 = User(271138000)
-    token = "AgAAAABCqug7AADLWzOfyZvGvUIFtKRDuWJAUxI"
-    ya = YaDisk_tmp.YaDisk(token)
-    # intro()
-    # give_command()
-    user1.get_photos()
+        return target_folder.split(os.path.sep)[-1]
