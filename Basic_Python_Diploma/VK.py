@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 import json
 import os
 import time
@@ -7,12 +7,13 @@ from pprint import pprint
 import requests
 from selenium import webdriver
 from selenium.webdriver.common.action_chains import ActionChains
+from tqdm import tqdm
 
-from Basic_Python_Diploma import YaDisk_tmp
+import YaDisk_tmp
 
 users_list = []
 
-now = int(time.mktime(datetime.datetime.now().timetuple()))
+now = int(time.mktime(datetime.now().timetuple()))
 
 
 class VKAPIAuth:
@@ -22,7 +23,7 @@ class VKAPIAuth:
         self.AUTHORIZE_URL = 'https://oauth.vk.com/authorize'
         self.oath_params = {
             'client_id': 3116505,
-            'scope': "users,friends",
+            'scope': "users,friends,photos",
             'display': 'page',
             'response_type': 'token',
             'v': '5.120',
@@ -191,9 +192,11 @@ class User:
         param.update(self.params)
         photos_list = requests.get(self.API_URL + self.methods['photos']['get'],
                                    params=param).json()['response']["items"][-5:]
-        # pprint(photos_list)
-        for photo in photos_list:
-            self.download(photo)
+        pprint(photos_list)
+        for photo in tqdm(photos_list):
+            target = self.download(photo)
+        tqdm(ya.upload(os.path.basename(target)))
+        ya.reload()
 
     def download(self, item):
         target_folder = 'downloads'
@@ -206,15 +209,16 @@ class User:
         file_to_download = requests.get(item["sizes"][-1]['url'])
         with open(os.path.join(target_folder,
                                str(item['likes']["count"]) + "_" +
-                               str(datetime.datetime.fromtimestamp(item["date"]).date()) + ".jpg"),
+                               str(datetime.fromtimestamp(item["date"]).date()) + ".jpg"),
                   'wb') as f:
             f.write(file_to_download.content)
 
 
         print(os.path.basename(target_folder))
-        token = "AgAAAABCqug7AADLWzOfyZvGvUIFtKRDuWJAUxI"
-        ya = YaDisk_tmp.YaDisk(token)
-        ya.upload(os.path.basename(target_folder))
+        return target_folder
+
+
+
 
 def check_token():
     with open("access_token.json") as file:
@@ -314,8 +318,10 @@ def check_token():
 
 if __name__ == '__main__':
     auth = check_token()
-    # user0 = User(273251945)
+    user0 = User(273251945)
     user1 = User(271138000)
+    token = "AgAAAABCqug7AADLWzOfyZvGvUIFtKRDuWJAUxI"
+    ya = YaDisk_tmp.YaDisk(token)
     # intro()
     # give_command()
     user1.get_photos()
