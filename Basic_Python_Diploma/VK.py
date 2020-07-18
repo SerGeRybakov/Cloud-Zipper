@@ -2,13 +2,11 @@ from datetime import datetime
 import json
 import os
 import time
-from pprint import pprint
 
 import requests
 from selenium import webdriver
 from selenium.webdriver.common.action_chains import ActionChains
-
-import runner
+from tqdm import tqdm
 
 users_list = []
 
@@ -98,12 +96,12 @@ class VKAPIAuth:
 
 
 class User:
-    def __init__(self, _id: int, token: str):
+    def __init__(self, _id: int):
         self.id = _id
         self.URL = 'https://vk.com/id'
         self.API_URL = 'https://api.vk.com/method/'
         self.params = {
-            'access_token': token,
+            'access_token': VKAPIAuth.ACCESS_TOKEN,
             'v': '5.120'
         }
         self.methods = {
@@ -112,13 +110,13 @@ class User:
                         'areFriends': 'friends.areFriends?',
                         'getMutual': 'friends.getMutual?',
                         },
-            'photos': {'get': 'photos.get?',
-                       'areFriends': 'friends.areFriends?',
-                       'getMutual': 'friends.getMutual?',
-                       },
-
+            'photos': {'get': 'photos.get?'},
         }
-
+        user_params = {"user_ids": self.id}
+        user_params.update(self.params)
+        resp = requests.get(self.API_URL + self.methods['users']['get'],
+                            params=user_params).json()['response'][0]
+        self.name = resp['first_name'] + ' ' + resp['last_name']
         if not users_list:
             users_list.append(self)
         else:
@@ -135,28 +133,6 @@ class User:
     def __and__(self, other):
         return self.mutual_friends(other.id)
 
-    def user(self, ids=None):
-        if ids:
-            user_params = {"user_ids": ids}
-        else:
-            user_params = {"user_ids": self.id}
-        user_params.update(self.params)
-        if ids:
-            if 0 < len(ids) <= 10:
-                user_id = requests.get(self.API_URL + self.methods['users']['get'],
-                                       params=user_params).json()['response'][0]
-                return user_id
-            else:
-                user_ids = requests.get(self.API_URL + self.methods['users']['get'],
-                                        params=user_params).json()['response']
-                return user_ids
-        else:
-            user_id = requests.get(self.API_URL + self.methods['users']['get'],
-                                   params=user_params).json()['response'][0]
-
-            user_name = user_id['first_name'] + ' ' + user_id['last_name']
-            return user_name
-
     def mutual_friends(self, friend):
         mutual_friends_params = {
             'source_uid': self.id,
@@ -165,49 +141,31 @@ class User:
         mutual_friends_params.update(self.params)
         ids_list = requests.get(self.API_URL + self.methods['friends']['getMutual'],
                                 params=mutual_friends_params).json()['response']
-
-        ids_str = ''
-        friends_list = [User(_id) for _id in ids_list]
-        for _id in ids_list:
-            if not ids_str:
-                ids_str += str(_id)
-            else:
-                ids_str = ids_str + "," + str(_id)
-        mut_friends_names = self.user(ids_str)
-        mut_friends_names_list = []
-        for _name in mut_friends_names:
-            name = _name['first_name'] + ' ' + _name['last_name']
-            mut_friends_names_list.append(name)
-        print(f'{self.user()} и {User(friend).user()} имеют {len(mut_friends_names_list)} общих друзей:')
-        print(*mut_friends_names_list, sep=", ")
+        time.sleep(0.5)
+        friends_list = tqdm([User(_id).name for _id in ids_list], desc="Получение списка общих друзей.")
+        time.sleep(0.5)
+        print(f'{self.name} и {User(friend).name} имеют {len(friends_list)} общих друзей:')
+        print(*friends_list, sep=", ")
         print(f'Все они являются сущностями и хранятся в списке "users_list".')
-        print(f'А вот список ссылок на их профили. ')
-        print(*friends_list, sep="\t")
         print()
 
     def get_photos(self):
-        param = {"album_id": "profile", "photo_sizes": "w", "type": "z", 'extended': 1, "owner_id": self.id}
+        param = {"album_id": "profile", "photo_sizes": "1", 'extended': 1, "owner_id": self.id}
         param.update(self.params)
         photos_list = requests.get(self.API_URL + self.methods['photos']['get'],
                                    params=param).json()['response']["items"][-5:]
-        # pprint(photos_list)
         url_list = [(photo["sizes"][-1]['url'], photo['likes']["count"], photo["date"]) for photo in photos_list]
-        return url_list, self.user()
+        return url_list, self.name
 
-
-    def download(self, item):
-        target_folder = 'downloads'
-        if not os.path.exists(target_folder):
-            os.mkdir(target_folder)
-        target_folder = os.path.join(target_folder, str(self.id))
-        if not os.path.exists(target_folder):
-            os.mkdir(target_folder)
+    @staticmethod
+    def download(urls_list):
+        tuples, name = urls_list
+        target_folder = os.path.join('downloads', name)
+        os.makedirs(target_folder, exist_ok=True)
         target_folder = os.path.abspath(target_folder)
-        file_to_download = requests.get(item["sizes"][-1]['url'])
-        with open(os.path.join(target_folder,
-                               str(item['likes']["count"]) + "_" +
-                               str(datetime.fromtimestamp(item["date"]).date()) + ".jpg"),
-                  'wb') as f:
-            f.write(file_to_download.content)
-        print(os.path.basename(target_folder))
+        for url, likes, date in tqdm(tuples):
+            file_to_download = requests.get(url)
+            with open(os.path.join(target_folder, str(likes) + "_" + str(datetime.fromtimestamp(date).date()) + ".jpg"),
+                      'wb') as f:
+                f.write(file_to_download.content)
         return target_folder.split(os.path.sep)[-1]
