@@ -1,25 +1,31 @@
-import VK as vk
-import YaDisk
+"""Модуль запускает работу всей программы"""
+
 import json
 from datetime import datetime
 import time
+from Basic_Python_Diploma import VK as vk
+from Basic_Python_Diploma import YaDisk
 
 now = int(time.mktime(datetime.now().timetuple()))
 
+
 def check_token():
+    """Модуль проверяет наличие и действительность токена пользователя vk.com"""
     with open("access_token.json") as file:
         access_key_dict = json.load(file)
     if access_key_dict['expires_in'] <= now:
         print("\n!!!!!!!!!!!!!!!!!!!!!!!!!")
         print("Для работы программы необходимо ввести данные для авторизации в Вашей учётной записи ВКонтакте.\n")
         print("Данные запрашиваются только в случае необходимости получения валидного ключа доступа от ВКонтакте.\n")
-        print("Вводимые учётные данные нигде не сохраняются, не передаются никуда, кроме сервиса ВКонтакте и "
-              "используются только во время работы программы.")
+        print("Вводимые учётные данные нигде не сохраняются, не передаются никуда, кроме сервиса ВКонтакте")
+        print("и используются только во время работы программы.")
         print("!!!!!!!!!!!!!!!!!!!!!!!!!")
-        auth_ = vk.VKAPIAuth(login=input("\nВведите логин (номер телефона/e-mail): "), password=input("Введите пароль: "))
+        auth_ = vk.VKAPIAuth(login=input("\nВведите логин (номер телефона/e-mail): "),
+                             password=input("Введите пароль: "))
         return auth_
     else:
         auth_ = vk.VKAPIAuth()
+        vk.VKAPIAuth.ACCESS_TOKEN = access_key_dict['access_token']
         return auth_
 
 
@@ -45,14 +51,14 @@ def give_command():
         return ya.reload()
 
     def mutual():
-        return vk.users_list[int(input("Укажите пользователя 1: "))-1] & \
-               vk.users_list[int(input("Укажите пользователя 2: "))-1]
+        return vk.users_list[int(input("Укажите пользователя 1: ")) - 1] & \
+               vk.users_list[int(input("Укажите пользователя 2: ")) - 1]
 
     def print_user_name():
-        return vk.users_list[int(input("Укажите пользователя: ")) - 1].user()
+        return vk.users_list[int(input("Укажите пользователя: ")) - 1].name
 
     def print_user_link():
-        return vk.users_list[int(input("Укажите пользователя: "))-1]
+        return vk.users_list[int(input("Укажите пользователя: ")) - 1]
 
     def print_all_users():
         return vk.users_list
@@ -91,18 +97,19 @@ def give_command():
 if __name__ == '__main__':
     auth = check_token()
 
-    user0 = vk.User(273251945, auth.ACCESS_TOKEN)
-    user1 = vk.User(271138000, auth.ACCESS_TOKEN)
+    user0 = vk.User(273251945)
+    user1 = vk.User(271138000)
 
     access_token = input("Введите токен Яндекс.Диска: ")
 
     ya = YaDisk.YaDisk(access_token)
+    user0 & user1
 
+    # vk.users_list[8].download(vk.users_list[8].get_photos())
+    # ya.upload(vk.users_list[8].get_photos())
 
-    # print(user0.get_photos())
-    # ya.upload(user0.get_photos())
     # ya.upload(user1.get_photos())
-    ya.upload("test")
+    # ya.upload("test")
 
     # ya.reload()
 
@@ -135,4 +142,3 @@ if __name__ == '__main__':
     # print(ya.upload("test1.txt"))
 
     # give_command()
-
