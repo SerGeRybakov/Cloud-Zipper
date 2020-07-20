@@ -1,3 +1,4 @@
+""" Модуль определяет порядок авторизации и дальнейшей работы с сервисом vk.com"""
 from datetime import datetime
 import json
 import os
@@ -14,6 +15,7 @@ now = int(time.mktime(datetime.now().timetuple()))
 
 
 class VKAPIAuth:
+    """ Класс предназначен для авторизации на сервисе vk.com"""
     ACCESS_TOKEN = ""
 
     def __init__(self, login=None, password=None):
@@ -25,11 +27,11 @@ class VKAPIAuth:
             'response_type': 'token',
             'v': '5.120',
         }
-        self.ACCESS_TOKEN = ""
+
         self.login = login
         self.password = password
-        with open("access_token.json") as f:
-            access_key_dic = json.load(f)
+        with open("access_token.json") as file:
+            access_key_dic = json.load(file)
         if access_key_dic["expires_in"] > now:
             self.ACCESS_TOKEN = access_key_dic["access_token"]
             self.expires_in = access_key_dic["expires_in"]
@@ -42,14 +44,15 @@ class VKAPIAuth:
                 access_key_dic["access_token"] = self.ACCESS_TOKEN
                 access_key_dic["granted"] = now
                 access_key_dic["expires_in"] = now + self.expires_in * 3600
-                with open("access_token.json", "w", encoding="utf-8") as f:
-                    json.dump(access_key_dic, f)
+                with open("access_token.json", "w", encoding="utf-8") as file:
+                    json.dump(access_key_dic, file)
                 print(f"\nТокен пользователя выдан со сроком действия {self.expires_in} ч.\n")
             else:
                 print("\nЧто-то пошло не так.")
                 print(self.get_token)
 
     def authorize(self):
+        """Метод получает токен пользователя"""
         print("\nПолучаем токен пользователя")
         # собираем ссылку для авторизации
         url = requests.get(self.AUTHORIZE_URL, params=self.oath_params).url
@@ -96,6 +99,7 @@ class VKAPIAuth:
 
 
 class User:
+    """Класс определяет методы работы с сервисами vk.com"""
     def __init__(self, _id: int):
         self.id = _id
         self.URL = 'https://vk.com/id'
@@ -110,7 +114,8 @@ class User:
                         'areFriends': 'friends.areFriends?',
                         'getMutual': 'friends.getMutual?',
                         },
-            'photos': {'get': 'photos.get?'},
+            'photos': {'get': 'photos.get?',
+                       'get_albums': 'photos.getAlbums?'},
         }
         user_params = {"user_ids": self.id}
         user_params.update(self.params)
@@ -124,16 +129,20 @@ class User:
             if self.id not in id_list:
                 users_list.append(self)
 
+    # noinspection Pylint
     def __repr__(self):
         return str(self.id)
 
+    # noinspection Pylint
     def __str__(self):
         return self.URL + str(self.id)
 
+    # noinspection Pylint
     def __and__(self, other):
         return self.mutual_friends(other.id)
 
     def mutual_friends(self, friend):
+        """Метод получает список общих друзей двух пользователей"""
         mutual_friends_params = {
             'source_uid': self.id,
             'target_uid': friend,
@@ -142,23 +151,58 @@ class User:
         ids_list = requests.get(self.API_URL + self.methods['friends']['getMutual'],
                                 params=mutual_friends_params).json()['response']
         time.sleep(0.5)
-        friends_list = tqdm([User(_id).name for _id in ids_list], desc="Получение списка общих друзей.")
+        friends_list = tqdm((User(_id).name for _id in ids_list),
+                            total=len(ids_list),
+                            desc="Получение имён общих друзей")
         time.sleep(0.5)
         print(f'{self.name} и {User(friend).name} имеют {len(friends_list)} общих друзей:')
         print(*friends_list, sep=", ")
-        print(f'Все они являются сущностями и хранятся в списке "users_list".')
+        print('Все они являются сущностями и хранятся в списке "users_list".')
         print()
 
     def get_photos(self):
-        param = {"album_id": "profile", "photo_sizes": "1", 'extended': 1, "owner_id": self.id}
+        """Метод получает ссылки на фотографии пользователя"""
+        def get_albums():
+            param = {"owner_id": self.id}
+            param.update(self.params)
+            response = requests.get(self.API_URL + self.methods['photos']['get_albums'],
+                                    params=param).json()['response']['items']
+            albums = {num: {album["title"]: album["id"]} for num, album in enumerate(response, start=1)}
+            last_key = max(albums.keys()) + 1
+            albums[last_key] = {"Фото профиля": "profile"}
+            return albums
+
+        albums = get_albums()
+
+        print("Фото из какого альбома Вы хотите загрузить?")
+        for keys, values in albums.items():
+            for key in values.keys():
+                print(f'{keys}: "{key}"')
+        album_number = albums[int(input("Введите номер альбома: "))]
+        album_id = (album_number[key] for key in album_number.keys())
+
+        param = {"album_id": album_id, "photo_sizes": "1", 'extended': 1, "owner_id": self.id}
         param.update(self.params)
         photos_list = requests.get(self.API_URL + self.methods['photos']['get'],
-                                   params=param).json()['response']["items"][-5:]
-        url_list = [(photo["sizes"][-1]['url'], photo['likes']["count"], photo["date"]) for photo in photos_list]
+                                   params=param).json()['response']['items'][-5:]
+
+        photos_info = []
+        for photo in photos_list:
+            info = {
+                "file_name": str(photo['likes']['count']) + "_" + str(
+                    datetime.fromtimestamp(photo['date']).date()) + ".jpg",
+                "size": photo['sizes'][-1]['type']
+            }
+            photos_info.append(info)
+        with open("downloaded_vk_photos.json", "w") as file:
+            json.dump(photos_info, file)
+
+        url_list = [(photo['sizes'][-1]['url'], photo['likes']['count'], photo['date']) for photo in photos_list]
         return url_list, self.name
 
     @staticmethod
     def download(urls_list):
+        """Метод скачивает на жесткий диск фотографии пользователя"""
         tuples, name = urls_list
         target_folder = os.path.join('downloads', name)
         os.makedirs(target_folder, exist_ok=True)
@@ -166,6 +210,6 @@ class User:
         for url, likes, date in tqdm(tuples):
             file_to_download = requests.get(url)
             with open(os.path.join(target_folder, str(likes) + "_" + str(datetime.fromtimestamp(date).date()) + ".jpg"),
-                      'wb') as f:
-                f.write(file_to_download.content)
+                      'wb') as file:
+                file.write(file_to_download.content)
         return target_folder.split(os.path.sep)[-1]

@@ -1,54 +1,56 @@
-import json
-import os
-import sys
-import time
-import zipfile
-from datetime import datetime
-
-import requests
-from tqdm import tqdm
-
 """
     Класс YaDisk - основной класс программы, содержащий в себе все методы для работы с такими сущностями Яндекс.Диска
-    как папки и файлы. 
-    Классы YaFile и YaFolder - наследники класса YaFile и YaDisk. Они не имеют собственных методов, но имеют все 
-    атрибуты, присущие файлам и папкам, хранящимся на Яндекс.Диске. 
-    
-    Основные методы для работы с этими сущностями являются: 
+    как папки и файлы.
+    Классы YaFile и YaFolder - наследники класса YaFile и YaDisk. Они не имеют собственных методов, но имеют все
+    атрибуты, присущие файлам и папкам, хранящимся на Яндекс.Диске.
+
+    Основные методы для работы с этими сущностями являются:
      - create_folder,
      - find_biggest,
      - delete,
      - download,
      - upload,
      - zip_file.
-     Основные методы влияют на файлы и папки непосредственным образом. Поэтому они должны быть унаследованы 
+     Основные методы влияют на файлы и папки непосредственным образом. Поэтому они должны быть унаследованы
      экземплярами классов YaFile и YaFolder.
-     
+
      Вспомогательными методами являются:
      - _parse_catalogues,
      - print_all,
      - reload,
      - top10.
      Данные методы не влияют непосредственно на сами файлы и папки, а лишь собирают и/или выводят обобщенную
-     статистическую информацию о файлах или папках. Вероятно, что такие методы не должны наследоваться экземплярами 
-     классов YaFile и YaFolder. При этом метод _parse_catalogues автоматически инициирует экземпляры классов YaFile и 
-     YaFolder с тем, чтобы программа имела полную информацию о текущем содержимом облака, а метод reload пересобирает 
-     эту информацию каждый раз, когда содержимое облака должно измениться после использования основных методов, влияющих 
-     на такое содержимое.          
-     
+     статистическую информацию о файлах или папках. Вероятно, что такие методы не должны наследоваться экземплярами
+     классов YaFile и YaFolder. При этом метод _parse_catalogues автоматически инициирует экземпляры классов YaFile и
+     YaFolder с тем, чтобы программа имела полную информацию о текущем содержимом облака, а метод reload пересобирает
+     эту информацию каждый раз, когда содержимое облака должно измениться после использования основных методов, влияющих
+     на такое содержимое.
+
      В то же время, программа не предполагает непосредственных операций с экземплярами классов YaFile и YaFolder.
-     На старте программы инициируется единственный экзепляр класса YaDisk, который обращается присущими ему методами с     
-     экземплярами классов YaFile и YaFolder - получает, обрабатывает, выводит информацию о всех них или о каждом 
+     На старте программы инициируется единственный экзепляр класса YaDisk, который обращается присущими ему методами с
+     экземплярами классов YaFile и YaFolder - получает, обрабатывает, выводит информацию о всех них или о каждом
      отдельном экземпляре, а также непосредственно влияет на них тем или иным образом.
-     
-     Кроме этого, в целях избежания дублирования кода, функция __repr__ перегружена из класса YaDisk с тем, чтобы 
+
+     Кроме этого, в целях избежания дублирования кода, функция __repr__ перегружена из класса YaDisk с тем, чтобы
      экземпляры наследников этого класса выводились на печать правильно (с моей точки зрения).
      См. комментарий к __repr__.
      """
 
+import json
+import os
+import sys
+import zipfile
+from datetime import datetime
+
+import requests
+from tqdm import tqdm
+
 
 class YaDisk:
+    """Класс определяет атрибуты Яндекс.Диска (файлы и папки) и методы работы с ними"""
+
     def __init__(self, token):
+        self.name = None
         self.all_files = []
         self.all_folders = []
         self.token = token
@@ -58,10 +60,12 @@ class YaDisk:
         print("Загрузка содержимого Я.Диска:")
         self._parse_catalogues()
 
+    # noinspection Pylint
     def __repr__(self):
         return self.name
 
     def _parse_catalogues(self, path="/"):
+        """Метод получает информацию обо всех файлах и папках на Яндекс.Диске"""
         self._point()
         yadisk_size = 0
         param = {"path": path}
@@ -79,9 +83,22 @@ class YaDisk:
                 self.all_files.append(YaFile(item))
         return yadisk_size
 
-    def _point(self):
+    @staticmethod
+    def _point():
+        """Метод симулирует работу прогресс-бара: выводит одну точку на каждой итерации"""
         sys.stdout.write('.')
         sys.stdout.flush()
+
+    @staticmethod
+    def _size(item):
+        size = int(round(item.size / 1024, 0))
+        if size > 100000:
+            size = str(round(size / 1024 ** 2, 2)) + " GB"
+        elif 100000 > size > 1000:
+            size = str(round(size / 1024, 2)) + " MB"
+        else:
+            size = str(size) + " KB"
+        return size
 
     def create_folder(self, folder_name, path=None):
         """метод создает папку на яндекс.диске с заданным именем"""
@@ -126,13 +143,13 @@ class YaDisk:
         self.print_all('folder')
 
     def delete(self, objects):
-        """метод удаляет папку или файл с яндекс.диска в корзину или навсегда"""
+        """Метод удаляет папку или файл с яндекс.диска в корзину или навсегда"""
 
         def _check_existance(param):
             test = requests.get(self.URL, headers=self.headers, params=param)
             while test.status_code != 404:
                 test = requests.get(self.URL, headers=self.headers, params=param)
-            return f"{test.status_code} - Object {param['path']} deleted successfully"
+            return "OK"
 
         print(objects)
         print("\nДля удаления объекта(-ов) в Корзину просто нажмите Enter.\n"
@@ -175,6 +192,7 @@ class YaDisk:
             return f'\nОбъекты {string} успешно удалены в Корзину.\n'
 
     def download(self, item):
+        """Метод скачивает на жесткий диск файл или папку"""
         self._point()
         target_folder = 'downloads'
         if not os.path.exists(target_folder):
@@ -188,8 +206,8 @@ class YaDisk:
             else:
                 target_folder = os.path.abspath(target_folder)
                 file_to_download = requests.get(item.link)
-                with open(os.path.join(target_folder, item.name), 'wb') as f:
-                    f.write(file_to_download.content)
+                with open(os.path.join(target_folder, item.name), 'wb') as file:
+                    file.write(file_to_download.content)
         except (KeyError, AttributeError):
             if item['type'] == 'dir':
                 target_folder = os.path.join(target_folder, item['path'].split('disk:/')[-1])
@@ -209,16 +227,18 @@ class YaDisk:
                     self.download(new_item)
                 else:
                     file_to_download = requests.get(new_item["file"])
-                    with open(os.path.join(target_folder, new_item["name"]), 'wb') as f:
-                        f.write(file_to_download.content)
+                    with open(os.path.join(target_folder, new_item["name"]), 'wb') as file:
+                        file.write(file_to_download.content)
             print()
         except KeyError:
             file_to_download = requests.get(response["file"])
-            with open(os.path.join(target_folder, response["name"]), 'wb') as f:
-                f.write(file_to_download.content)
+            with open(os.path.join(target_folder, response["name"]), 'wb') as file:
+                file.write(file_to_download.content)
 
     def find_biggest(self, obj_type=None):
-        """For find_biggest you shall indicate 'obj_type'-argument: either 'file' or 'folder' """
+        """Метод выводит на экран папку или файл с самым большим размером.
+        Для этого необходимо передать аргумент 'obj_type': либо 'file', либо 'folder'."""
+        call = ""
         lst = None
         filename = None
         if (obj_type is None) or (obj_type != 'file' and obj_type != 'folder'):
@@ -233,14 +253,14 @@ class YaDisk:
                 filename = "biggest_folder_info.json"
                 call = 'каталогом'
         max_size_object = max(lst, key=lambda obj: obj.size)
-        with open(filename, "w", encoding="UTF-8") as f:
-            json.dump({max_size_object.name: max_size_object.size}, f)
-        print(f'Самым большим {call} является {max_size_object.name} - {max_size_object.size}.')
+        with open(filename, "w", encoding="UTF-8") as file:
+            json.dump({max_size_object.name: max_size_object.size}, file)
 
-        return max_size_object
+        return f'Самым большим {call} является "{max_size_object.name}" - {self._size(max_size_object)}.'
 
     def print_all(self, obj_type=None):
-        """For print_all you shall indicate 'obj_type'-argument: either 'file' or 'folder' """
+        """Метод выводит на экран все папки или файлы, имеющиеся на Яндекс.Диске.
+        Для этого необходимо передать аргумент 'obj_type': либо 'file', либо 'folder'."""
         collection = None
         if (obj_type is None) or (obj_type != 'file' and obj_type != 'folder'):
             return print(self.top10.__doc__)
@@ -254,13 +274,15 @@ class YaDisk:
         return collection
 
     def reload(self):
+        """Метод обновляет информацию обо всех файлах и папках на Яндекс.Диске"""
         self.all_folders = []
         self.all_files = []
         print("Обновление содержимого Я.Диска:")
         self._parse_catalogues()
 
     def top10(self, obj_type=None):
-        """For top10 you shall indicate 'obj_type'-argument: either 'file' or 'folder' """
+        """Метод выводит на экран топ-10 самых больших папок или файлов.
+        Для этого необходимо передать аргумент 'obj_type': либо 'file', либо 'folder'."""
         collection = None
         if (obj_type is None) or (obj_type != 'file' and obj_type != 'folder'):
             return print(self.top10.__doc__)
@@ -272,21 +294,13 @@ class YaDisk:
             top10 = sorted(collection, key=lambda obj: obj.size, reverse=True)[:10]
             top_10 = []
             for num, i in enumerate(top10, start=1):
-                size = int(round(i.size / 1024, 0))
-                if size > 100000:
-                    size = str(round(size / 1024 ** 2, 2)) + " GB"
-                elif 100000 > size > 1000:
-                    size = str(round(size / 1024, 2)) + " MB"
-                else:
-                    size = str(size) + " KB"
-                top_10.append(f'{num}. {i}, {size}')
-            print(*top_10, sep="\n", end='\n\n')
-            return top_10
+                top_10.append(f'{num}. {i}, {self._size(i)}')
+        return print(*top_10, sep="\n", end='\n\n')
 
     def upload(self, object):
         """Метод загруджает на Яндекс.Диск файлы и папки с компьютера, а также фотографии из сети по URL."""
 
-        def _check_folder_existanse(folder_name, target_folderpath):
+        def _check_folder_exist(folder_name, target_folderpath):
             param = {"path": target_folderpath}
             test = requests.get(self.URL, headers=self.headers, params=param)
             if "/" in target_folderpath:
@@ -313,8 +327,8 @@ class YaDisk:
                     param = {"path": f"{folder_path}/{file}"}
                     full_path = os.path.join(folder_path, file)
                     upload_url = requests.get(self.URL + "/upload", headers=self.headers, params=param).json()["href"]
-                    with open(full_path, "rb") as f:
-                        requests.put(upload_url, data=f)
+                    with open(full_path, "rb") as _file:
+                        requests.put(upload_url, data=_file)
                         print(f'Файл "{file}" успешно загружен на Яндекс.Диск\n')
                     message = f"\n======\n\n" \
                               f"Все файлы из папки {folder_name} успешно загружены на Яндекс.Диск\n"
@@ -329,8 +343,8 @@ class YaDisk:
                 param = {"path": f"{targetpath}/{file}"}
 
                 upload_url = requests.get(self.URL + "/upload", headers=self.headers, params=param).json()["href"]
-                with open(fullpath, "rb") as f:
-                    requests.put(upload_url, data=f)
+                with open(fullpath, "rb") as file:
+                    requests.put(upload_url, data=file)
                     print(f'Файл "{file}" успешно загружен на Яндекс.Диск\n')
             except KeyError:
                 print(f'Файл "{file}" был ранее загружен на Яндекс.Диск\n')
@@ -344,7 +358,7 @@ class YaDisk:
             folder = "vk_photo"
             folder_name = object[1]
             target_folderpath = folder + "/" + folder_name
-            _check_folder_existanse(folder_name, target_folderpath)
+            _check_folder_exist(folder_name, target_folderpath)
             for url, likes, date in tqdm(object[0]):
                 _upload_url(url, likes, date)
         else:
@@ -365,12 +379,12 @@ class YaDisk:
             if os.path.isdir(object_full_path):
                 folder_name = object
                 target_folderpath = object_realpath
-                _check_folder_existanse(folder_name, target_folderpath)
+                _check_folder_exist(folder_name, target_folderpath)
                 tqdm(_upload_folder(target_folderpath))
             else:
                 folder_name = object_realpath.split("/" + object)[0]
                 target_folderpath = object_realpath.split("/" + object)[0]
-                _check_folder_existanse(folder_name, target_folderpath)
+                _check_folder_exist(folder_name, target_folderpath)
                 tqdm(_upload_file(object, target_folderpath, object_full_path))
         self.reload()
         self.print_all('file')
@@ -378,6 +392,7 @@ class YaDisk:
 
     @staticmethod
     def zip_file(item):
+        """Метод архивирует файл или папку в формат zip."""
         base_path = "downloads"
         full_name = item.name
         name = os.path.splitext(full_name)[0]
@@ -387,16 +402,28 @@ class YaDisk:
                 fzip.write(filename=os.path.join(base_path, full_name), arcname=full_name)
             else:
                 folder = os.walk(os.path.join(base_path, path))
-                for root, dirs, files in folder:
+                for root, _dirs, files in folder:
                     dir_name = root.split(base_path)[1]
                     fzip.write(filename=root, arcname=dir_name)
                     for filename in files:
                         fzip.write(filename=os.path.join(root, filename), arcname=os.path.join(dir_name, filename))
+
+        info = {
+                "file_name": item.name,
+                "size": item.size,
+                "path": item.path
+        }
+        with open(f"{fzip.filename}_info.json", "w") as file:
+            json.dump(info, file)
+
         return os.path.abspath(fzip.filename)
 
 
 class YaFile(YaDisk):
-    # noinspection PyMissingConstructor
+    """Класс создаёт в программе абстракцию сущностей Яндекс.Диска - файлов.
+    Экземпляры класса содержат всю полноту информации о сущностях, имеющуюся на Яндекс.Диске."""
+
+    # noinspection Pylint
     def __init__(self, item):
         self.antivirus_status = item['antivirus_status']
         self.size = item['size']
@@ -417,7 +444,10 @@ class YaFile(YaDisk):
 
 
 class YaFolder(YaDisk):
-    # noinspection PyMissingConstructor
+    # noinspection Pylint
+    """Класс создаёт в программе абстракцию сущностей Яндекс.Диска - папок.
+       Экземпляры класса содержат всю полноту информации о сущностях, имеющуюся на Яндекс.Диске."""
+
     def __init__(self, item):
         self.name = item['name']
         self.exif = item['exif']
