@@ -1,5 +1,4 @@
-""" Модуль определяет порядок авторизации и дальнейшей работы с сервисом vk.com """
-
+""" Модуль определяет порядок авторизации и дальнейшей работы с сервисом vk.com"""
 from datetime import datetime
 import json
 import os
@@ -116,7 +115,7 @@ class User:
                         'getMutual': 'friends.getMutual?',
                         },
             'photos': {'get': 'photos.get?',
-                       'get_albums': 'photos.getAlbums?',
+                       'get_albums': 'photos.getAlbums?'},
         }
         user_params = {"user_ids": self.id}
         user_params.update(self.params)
