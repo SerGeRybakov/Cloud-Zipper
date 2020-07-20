@@ -1,8 +1,9 @@
 """Модуль запускает работу всей программы"""
 
 import json
-from datetime import datetime
 import time
+from datetime import datetime
+
 from Basic_Python_Diploma import VK as vk
 from Basic_Python_Diploma import YaDisk
 
