@@ -115,7 +115,7 @@ class User:
                         'getMutual': 'friends.getMutual?',
                         },
             'photos': {'get': 'photos.get?',
-                       'get_albums': 'photos.getAlbums?'},
+                       'get_albums': 'photos.getAlbums?',
         }
         user_params = {"user_ids": self.id}
         user_params.update(self.params)

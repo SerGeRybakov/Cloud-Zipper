@@ -36,6 +36,7 @@
      См. комментарий к __repr__.
      """
 
+
 import json
 import os
 import sys
@@ -151,6 +152,7 @@ class YaDisk:
                 test = requests.get(self.URL, headers=self.headers, params=param)
             return "OK"
 
+
         print(objects)
         print("\nДля удаления объекта(-ов) в Корзину просто нажмите Enter.\n"
               "Для полного удаления объекта(-ов) без возможности восстановления введите 1.")
@@ -258,6 +260,28 @@ class YaDisk:
 
         return f'Самым большим {call} является "{max_size_object.name}" - {self._size(max_size_object)}.'
 
+    def find_biggest(self, obj_type=None):
+        """For find_biggest you shall indicate 'obj_type'-argument: either 'file' or 'folder' """
+        lst = None
+        filename = None
+        if (obj_type is None) or (obj_type != 'file' and obj_type != 'folder'):
+            return print(self.find_biggest.__doc__)
+        else:
+            if obj_type == 'file':
+                lst = self.all_files
+                filename = "biggest_file_info.json"
+                call = 'файлом'
+            elif obj_type == 'folder':
+                lst = self.all_folders
+                filename = "biggest_folder_info.json"
+                call = 'каталогом'
+        max_size_object = max(lst, key=lambda obj: obj.size)
+        with open(filename, "w", encoding="UTF-8") as f:
+            json.dump({max_size_object.name: max_size_object.size}, f)
+        print(f'Самым большим {call} является {max_size_object.name} - {max_size_object.size}.')
+
+        return max_size_object
+
     def print_all(self, obj_type=None):
         """Метод выводит на экран все папки или файлы, имеющиеся на Яндекс.Диске.
         Для этого необходимо передать аргумент 'obj_type': либо 'file', либо 'folder'."""
@@ -301,6 +325,28 @@ class YaDisk:
         """Метод загруджает на Яндекс.Диск файлы и папки с компьютера, а также фотографии из сети по URL."""
 
         def _check_folder_exist(folder_name, target_folderpath):
+            param = {"path": target_folderpath}
+            test = requests.get(self.URL, headers=self.headers, params=param)
+            if "/" in target_folderpath:
+                if test.status_code == 404:
+                    folder = target_folderpath.split("/")
+                    print(folder)
+                    param = {"path": folder[0]}
+                    test = requests.get(self.URL, headers=self.headers, params=param)
+                    if test.status_code == 404:
+                        folder_name = folder[0]
+                        self.create_folder(folder_name, folder)
+                        folder_name = folder[-1]
+                        self.create_folder(folder_name, target_folderpath)
+                    else:
+                        self.create_folder(folder_name, target_folderpath)
+            else:
+                self.create_folder(folder_name, target_folderpath)
+
+    def upload(self, object):
+        """Метод загруджает на Яндекс.Диск файлы и папки с компьютера, а также фотографии из сети по URL."""
+
+        def _check_folder_existanse(folder_name, target_folderpath):
             param = {"path": target_folderpath}
             test = requests.get(self.URL, headers=self.headers, params=param)
             if "/" in target_folderpath:

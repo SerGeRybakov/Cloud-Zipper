@@ -6,6 +6,8 @@ import time
 from Basic_Python_Diploma import VK as vk
 from Basic_Python_Diploma import YaDisk
 
+from tqdm import tqdm
+
 now = int(time.mktime(datetime.now().timetuple()))
 
 
@@ -223,10 +225,9 @@ if __name__ == '__main__':
 
     user0 = vk.User(273251945)
     user1 = vk.User(271138000)
-
-    # access_token = input("Введите токен Яндекс.Диска: ")
-    access_token = "AgAAAABCqug7AADLWzOfyZvGvUIFtKRDuWJAUxI"
+    access_token = input("Введите токен Яндекс.Диска: ")
     ya = YaDisk.YaDisk(access_token)
+
     # time.sleep(1)
     # user0.get_photos()
     # user0 & user1
