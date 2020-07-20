@@ -6,10 +6,8 @@ import time
 from Basic_Python_Diploma import VK as vk
 from Basic_Python_Diploma import YaDisk
 
-from tqdm import tqdm
 
 now = int(time.mktime(datetime.now().timetuple()))
-
 
 def check_token():
     """Модуль проверяет наличие и действительность токена пользователя vk.com"""
