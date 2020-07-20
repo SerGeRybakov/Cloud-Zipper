@@ -1,5 +1,4 @@
 """ Модуль определяет порядок авторизации и дальнейшей работы с сервисом vk.com"""
-
 from datetime import datetime
 import json
 import os
@@ -28,7 +27,7 @@ class VKAPIAuth:
             'response_type': 'token',
             'v': '5.120',
         }
-        self.ACCESS_TOKEN = ""
+
         self.login = login
         self.password = password
         with open("access_token.json") as file:
@@ -101,7 +100,6 @@ class VKAPIAuth:
 
 class User:
     """Класс определяет методы работы с сервисами vk.com"""
-
     def __init__(self, _id: int):
         self.id = _id
         self.URL = 'https://vk.com/id'
@@ -116,7 +114,8 @@ class User:
                         'areFriends': 'friends.areFriends?',
                         'getMutual': 'friends.getMutual?',
                         },
-            'photos': {'get': 'photos.get?'},
+            'photos': {'get': 'photos.get?',
+                       'get_albums': 'photos.getAlbums?'},
         }
         user_params = {"user_ids": self.id}
         user_params.update(self.params)
@@ -152,7 +151,9 @@ class User:
         ids_list = requests.get(self.API_URL + self.methods['friends']['getMutual'],
                                 params=mutual_friends_params).json()['response']
         time.sleep(0.5)
-        friends_list = tqdm([User(_id).name for _id in ids_list], desc="Получение списка общих друзей.")
+        friends_list = tqdm((User(_id).name for _id in ids_list),
+                            total=len(ids_list),
+                            desc="Получение имён общих друзей")
         time.sleep(0.5)
         print(f'{self.name} и {User(friend).name} имеют {len(friends_list)} общих друзей:')
         print(*friends_list, sep=", ")
@@ -161,11 +162,42 @@ class User:
 
     def get_photos(self):
         """Метод получает ссылки на фотографии пользователя"""
-        param = {"album_id": "profile", "photo_sizes": "1", 'extended': 1, "owner_id": self.id}
+        def get_albums():
+            param = {"owner_id": self.id}
+            param.update(self.params)
+            response = requests.get(self.API_URL + self.methods['photos']['get_albums'],
+                                    params=param).json()['response']['items']
+            albums = {num: {album["title"]: album["id"]} for num, album in enumerate(response, start=1)}
+            last_key = max(albums.keys()) + 1
+            albums[last_key] = {"Фото профиля": "profile"}
+            return albums
+
+        albums = get_albums()
+
+        print("Фото из какого альбома Вы хотите загрузить?")
+        for keys, values in albums.items():
+            for key in values.keys():
+                print(f'{keys}: "{key}"')
+        album_number = albums[int(input("Введите номер альбома: "))]
+        album_id = (album_number[key] for key in album_number.keys())
+
+        param = {"album_id": album_id, "photo_sizes": "1", 'extended': 1, "owner_id": self.id}
         param.update(self.params)
         photos_list = requests.get(self.API_URL + self.methods['photos']['get'],
-                                   params=param).json()['response']["items"][-5:]
-        url_list = [(photo["sizes"][-1]['url'], photo['likes']["count"], photo["date"]) for photo in photos_list]
+                                   params=param).json()['response']['items'][-5:]
+
+        photos_info = []
+        for photo in photos_list:
+            info = {
+                "file_name": str(photo['likes']['count']) + "_" + str(
+                    datetime.fromtimestamp(photo['date']).date()) + ".jpg",
+                "size": photo['sizes'][-1]['type']
+            }
+            photos_info.append(info)
+        with open("downloaded_vk_photos.json", "w") as file:
+            json.dump(photos_info, file)
+
+        url_list = [(photo['sizes'][-1]['url'], photo['likes']['count'], photo['date']) for photo in photos_list]
         return url_list, self.name
 
     @staticmethod

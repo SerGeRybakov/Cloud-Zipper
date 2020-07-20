@@ -89,6 +89,17 @@ class YaDisk:
         sys.stdout.write('.')
         sys.stdout.flush()
 
+    @staticmethod
+    def _size(item):
+        size = int(round(item.size / 1024, 0))
+        if size > 100000:
+            size = str(round(size / 1024 ** 2, 2)) + " GB"
+        elif 100000 > size > 1000:
+            size = str(round(size / 1024, 2)) + " MB"
+        else:
+            size = str(size) + " KB"
+        return size
+
     def create_folder(self, folder_name, path=None):
         """метод создает папку на яндекс.диске с заданным именем"""
 
@@ -244,9 +255,8 @@ class YaDisk:
         max_size_object = max(lst, key=lambda obj: obj.size)
         with open(filename, "w", encoding="UTF-8") as file:
             json.dump({max_size_object.name: max_size_object.size}, file)
-        print(f'Самым большим {call} является {max_size_object.name} - {max_size_object.size}.')
 
-        return max_size_object
+        return f'Самым большим {call} является "{max_size_object.name}" - {self._size(max_size_object)}.'
 
     def print_all(self, obj_type=None):
         """Метод выводит на экран все папки или файлы, имеющиеся на Яндекс.Диске.
@@ -284,16 +294,8 @@ class YaDisk:
             top10 = sorted(collection, key=lambda obj: obj.size, reverse=True)[:10]
             top_10 = []
             for num, i in enumerate(top10, start=1):
-                size = int(round(i.size / 1024, 0))
-                if size > 100000:
-                    size = str(round(size / 1024 ** 2, 2)) + " GB"
-                elif 100000 > size > 1000:
-                    size = str(round(size / 1024, 2)) + " MB"
-                else:
-                    size = str(size) + " KB"
-                top_10.append(f'{num}. {i}, {size}')
-            print(*top_10, sep="\n", end='\n\n')
-            return top_10
+                top_10.append(f'{num}. {i}, {self._size(i)}')
+        return print(*top_10, sep="\n", end='\n\n')
 
     def upload(self, object):
         """Метод загруджает на Яндекс.Диск файлы и папки с компьютера, а также фотографии из сети по URL."""
@@ -405,6 +407,15 @@ class YaDisk:
                     fzip.write(filename=root, arcname=dir_name)
                     for filename in files:
                         fzip.write(filename=os.path.join(root, filename), arcname=os.path.join(dir_name, filename))
+
+        info = {
+                "file_name": item.name,
+                "size": item.size,
+                "path": item.path
+        }
+        with open(f"{fzip.filename}_info.json", "w") as file:
+            json.dump(info, file)
+
         return os.path.abspath(fzip.filename)
 
 
