@@ -151,7 +151,7 @@ class YaDisk:
                 test = requests.get(self.URL, headers=self.headers, params=param)
             return "OK"
 
-        print(objects)
+        print("Удаляем", objects)
         print("\nДля удаления объекта(-ов) в Корзину просто нажмите Enter.\n"
               "Для полного удаления объекта(-ов) без возможности восстановления введите 1.")
         permanent = input("Введите ответ: ")
@@ -193,27 +193,43 @@ class YaDisk:
 
     def download(self, item):
         """Метод скачивает на жесткий диск файл или папку"""
-        self._point()
-        target_folder = 'downloads'
-        if not os.path.exists(target_folder):
-            os.mkdir(target_folder)
+        try:
+            if item.type == "dir":
+                target_folder = os.path.join('downloads', item.path.split('disk:/')[-1])
+            else:
+                target_folder = os.path.join('downloads', item.path.split('disk:/')[-1].split(item.name)[0])
+        except(KeyError, AttributeError):
+            if item["type"] == "dir":
+                target_folder = os.path.join('downloads', item['path'].split('disk:/')[-1])
+            else:
+                target_folder = os.path.join('downloads', item['path'].split('disk:/')[-1].split(item['name'])[0])
+        print(target_folder)
+        os.makedirs(target_folder, exist_ok=True)
         try:
             if item.type == 'dir':
-                target_folder = os.path.join(target_folder, item.path.split('disk:/')[-1])
-                if not os.path.exists(target_folder):
-                    os.mkdir(target_folder)
                 target_folder = os.path.abspath(target_folder)
+                try:
+                    os.makedirs(target_folder, exist_ok=True)
+                except FileExistsError:
+                    return "Файл уже существует на диске"
             else:
                 target_folder = os.path.abspath(target_folder)
                 file_to_download = requests.get(item.link)
                 with open(os.path.join(target_folder, item.name), 'wb') as file:
                     file.write(file_to_download.content)
-        except (KeyError, AttributeError):
+        except AttributeError:
             if item['type'] == 'dir':
-                target_folder = os.path.join(target_folder, item['path'].split('disk:/')[-1])
-                if not os.path.exists(target_folder):
-                    os.mkdir(target_folder)
                 target_folder = os.path.abspath(target_folder)
+                try:
+                    os.makedirs(target_folder, exist_ok=True)
+                except FileExistsError:
+                    return "Файл уже существует на диске"
+            else:
+                target_folder = os.path.abspath(target_folder)
+                file_to_download = requests.get(item.link)
+                with open(os.path.join(target_folder, item.name), 'wb') as file:
+                    file.write(file_to_download.content)
+
         try:
             param = {'path': item.path}
         except (KeyError, AttributeError):
@@ -226,14 +242,33 @@ class YaDisk:
                 if new_item['type'] == 'dir':
                     self.download(new_item)
                 else:
-                    file_to_download = requests.get(new_item["file"])
-                    with open(os.path.join(target_folder, new_item["name"]), 'wb') as file:
-                        file.write(file_to_download.content)
-            print()
+                    file_to_download = requests.get(new_item["file"], stream=True)
+                    total = new_item["size"]
+                    with open(os.path.join(target_folder, new_item["name"]), 'wb') as file, tqdm(
+                            desc=new_item["name"],
+                            total=total,
+                            unit='iB',
+                            unit_scale=True,
+                            unit_divisor=1024,
+                    ) as bar:
+                        for data in file_to_download.iter_content(chunk_size=1024):
+                            size = file.write(data)
+                            bar.update(size)
+
         except KeyError:
-            file_to_download = requests.get(response["file"])
-            with open(os.path.join(target_folder, response["name"]), 'wb') as file:
-                file.write(file_to_download.content)
+            file_to_download = requests.get(response["file"], stream=True)
+            total = response["size"]
+            with open(os.path.join(target_folder, response["name"]), 'wb') as file, tqdm(
+                    desc=response["name"],
+                    total=total,
+                    unit='iB',
+                    unit_scale=True,
+                    unit_divisor=1024,
+            ) as bar:
+                for data in file_to_download.iter_content(chunk_size=1024):
+                    size = file.write(data)
+                    bar.update(size)
+        return "Объекты успешно скачаны"
 
     def find_biggest(self, obj_type=None):
         """Метод выводит на экран папку или файл с самым большим размером.
@@ -255,8 +290,8 @@ class YaDisk:
         max_size_object = max(lst, key=lambda obj: obj.size)
         with open(filename, "w", encoding="UTF-8") as file:
             json.dump({max_size_object.name: max_size_object.size}, file)
-
-        return f'Самым большим {call} является "{max_size_object.name}" - {self._size(max_size_object)}.'
+        print(f'Самым большим {call} является "{max_size_object.name}" - {self._size(max_size_object)}.')
+        return max_size_object
 
     def print_all(self, obj_type=None):
         """Метод выводит на экран все папки или файлы, имеющиеся на Яндекс.Диске.
@@ -322,14 +357,13 @@ class YaDisk:
         def _upload_folder(folder_path):
             file_list = os.listdir(folder_path)
             message = str
-            for file in file_list:
+            for file in tqdm(file_list):
                 try:
                     param = {"path": f"{folder_path}/{file}"}
                     full_path = os.path.join(folder_path, file)
                     upload_url = requests.get(self.URL + "/upload", headers=self.headers, params=param).json()["href"]
                     with open(full_path, "rb") as _file:
                         requests.put(upload_url, data=_file)
-                        print(f'Файл "{file}" успешно загружен на Яндекс.Диск\n')
                     message = f"\n======\n\n" \
                               f"Все файлы из папки {folder_name} успешно загружены на Яндекс.Диск\n"
                 except KeyError:
@@ -341,11 +375,12 @@ class YaDisk:
         def _upload_file(file, targetpath, fullpath):
             try:
                 param = {"path": f"{targetpath}/{file}"}
-
+                print(param)
+                print(requests.get(self.URL + "/upload", headers=self.headers, params=param).json())
                 upload_url = requests.get(self.URL + "/upload", headers=self.headers, params=param).json()["href"]
                 with open(fullpath, "rb") as file:
-                    requests.put(upload_url, data=file)
-                    print(f'Файл "{file}" успешно загружен на Яндекс.Диск\n')
+                    requests.put(upload_url, data=file),
+                print(f'Файл "{file}" успешно загружен на Яндекс.Диск\n')
             except KeyError:
                 print(f'Файл "{file}" был ранее загружен на Яндекс.Диск\n')
 
@@ -355,7 +390,7 @@ class YaDisk:
             return requests.post(self.URL + "/upload", headers=self.headers, params=param)
 
         if len(object) == 2:
-            folder = "vk_photo"
+            folder = "photos"
             folder_name = object[1]
             target_folderpath = folder + "/" + folder_name
             _check_folder_exist(folder_name, target_folderpath)
@@ -380,12 +415,26 @@ class YaDisk:
                 folder_name = object
                 target_folderpath = object_realpath
                 _check_folder_exist(folder_name, target_folderpath)
-                tqdm(_upload_folder(target_folderpath))
+                _upload_folder(target_folderpath)
             else:
-                folder_name = object_realpath.split("/" + object)[0]
-                target_folderpath = object_realpath.split("/" + object)[0]
-                _check_folder_exist(folder_name, target_folderpath)
-                tqdm(_upload_file(object, target_folderpath, object_full_path))
+                if ".zip" in object:
+                    name = object.split(".zip")[0]
+                    for file in self.all_files:
+                        if file.name.split(".")[0] == name:
+                            target_folderpath = file.path.split("/" + file.name)[0]
+                            _upload_file(object, target_folderpath, object_full_path)
+                            return
+                    for folder in self.all_folders:
+                        if folder.name.split(".")[0] == name:
+                            target_folderpath = folder.path.split("/" + folder.name)[0]
+                            _upload_file(object, target_folderpath, object_full_path)
+                            return
+                else:
+                    folder_name = object_realpath.split("/" + object)[0]
+                    target_folderpath = object_realpath.split("/" + object)[0]
+                    _check_folder_exist(folder_name, target_folderpath)
+                    _upload_file(object, target_folderpath, object_full_path)
+
         self.reload()
         self.print_all('file')
         self.print_all('folder')
@@ -395,11 +444,21 @@ class YaDisk:
         """Метод архивирует файл или папку в формат zip."""
         base_path = "downloads"
         full_name = item.name
+        object_full_path = str
+        folder_scan = os.walk(os.path.join(os.path.curdir, base_path))
+        for root, dirs, files in folder_scan:
+            for dir in dirs:
+                if full_name == dir:
+                    object_full_path = os.path.join(root, dir)
+            else:
+                for file in files:
+                    if full_name == file:
+                        object_full_path = os.path.join(root, file)
         name = os.path.splitext(full_name)[0]
         path = item.path.split('disk:/')[1]
         with zipfile.ZipFile(os.path.join(base_path, name) + '.zip', "w") as fzip:
             if "." in item.name:
-                fzip.write(filename=os.path.join(base_path, full_name), arcname=full_name)
+                fzip.write(filename=object_full_path, arcname=full_name)
             else:
                 folder = os.walk(os.path.join(base_path, path))
                 for root, _dirs, files in folder:
@@ -409,14 +468,14 @@ class YaDisk:
                         fzip.write(filename=os.path.join(root, filename), arcname=os.path.join(dir_name, filename))
 
         info = {
-                "file_name": item.name,
-                "size": item.size,
-                "path": item.path
+            "file_name": item.name,
+            "size": item.size,
+            "path": item.path
         }
         with open(f"{fzip.filename}_info.json", "w") as file:
             json.dump(info, file)
-
-        return os.path.abspath(fzip.filename)
+        print(f"{os.path.basename(fzip.filename).capitalize()} успешно создан")
+        return os.path.basename(fzip.filename)
 
 
 class YaFile(YaDisk):

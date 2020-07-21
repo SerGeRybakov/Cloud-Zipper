@@ -1,8 +1,8 @@
 """ Модуль определяет порядок авторизации и дальнейшей работы с сервисом vk.com"""
-from datetime import datetime
 import json
 import os
 import time
+from datetime import datetime
 
 import requests
 from selenium import webdriver
@@ -100,6 +100,7 @@ class VKAPIAuth:
 
 class User:
     """Класс определяет методы работы с сервисами vk.com"""
+
     def __init__(self, _id: int):
         self.id = _id
         self.URL = 'https://vk.com/id'
@@ -119,6 +120,8 @@ class User:
         }
         user_params = {"user_ids": self.id}
         user_params.update(self.params)
+        # print(requests.get(self.API_URL + self.methods['users']['get'],
+        #              params=user_params).json())
         resp = requests.get(self.API_URL + self.methods['users']['get'],
                             params=user_params).json()['response'][0]
         self.name = resp['first_name'] + ' ' + resp['last_name']
@@ -153,24 +156,27 @@ class User:
         time.sleep(0.5)
         friends_list = tqdm((User(_id).name for _id in ids_list),
                             total=len(ids_list),
-                            desc="Получение имён общих друзей")
-        time.sleep(0.5)
-        print(f'{self.name} и {User(friend).name} имеют {len(friends_list)} общих друзей:')
-        print(*friends_list, sep=", ")
-        print('Все они являются сущностями и хранятся в списке "users_list".')
-        print()
+                            desc=f"Получение имён общих друзей")
+        time.sleep(0.7)
+        print(f'\n{self.name} и {User(friend).name} имеют {len(friends_list)} общих друзей:')
+        print(*friends_list, sep=", ", end="\n\n")
 
     def get_photos(self):
-        """Метод получает ссылки на фотографии пользователя"""
+        """Метод получает ссылки на 5 последних по дате загрузки фотографий из различных альбомах пользователя"""
+
         def get_albums():
             param = {"owner_id": self.id}
             param.update(self.params)
             response = requests.get(self.API_URL + self.methods['photos']['get_albums'],
                                     params=param).json()['response']['items']
             albums = {num: {album["title"]: album["id"]} for num, album in enumerate(response, start=1)}
-            last_key = max(albums.keys()) + 1
-            albums[last_key] = {"Фото профиля": "profile"}
-            return albums
+            try:
+                last_key = max(albums.keys()) + 1
+                albums[last_key] = {"Фото профиля": "profile"}
+                return albums
+            except ValueError:
+                albums[0] = {"Фото профиля": "profile"}
+                return albums
 
         albums = get_albums()
 
