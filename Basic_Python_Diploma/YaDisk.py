@@ -205,7 +205,6 @@ class YaDisk:
             item_title = item['name']
 
         if item_type == "dir":
-            print(item_type)
             target_folder = os.path.abspath(os.path.join('downloads', item_name))
             print(target_folder)
             try:
@@ -213,8 +212,7 @@ class YaDisk:
             except FileExistsError:
                 return "Файл уже существует на диске"
         else:
-            print(item_type)
-            target_folder = os.path.abspath(os.path.join('downloads', item_name.split(item_name)[0]))
+            target_folder = os.path.abspath(os.path.join('downloads', item_name.split(item_title)[0]))
             print(target_folder)
             os.makedirs(target_folder, exist_ok=True)
             file_to_download = requests.get(item.link)
