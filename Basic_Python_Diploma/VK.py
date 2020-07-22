@@ -7,6 +7,7 @@ from datetime import datetime
 import requests
 from selenium import webdriver
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.by import By
 from tqdm import tqdm
 
 users_list = []
@@ -64,27 +65,24 @@ class VKAPIAuth:
 
         # процесс авторизации
         driver.get(url)
-        login = driver.find_element_by_xpath('//*[@id="login_submit"]/div/div/input[6]')
+        login = driver.find_element(By.XPATH, '//*[@id="login_submit"]/div/div/input[6]')
         ActionChains(driver).move_to_element(login).click().perform()
 
         login.send_keys(self.login)
 
-        password = driver.find_element_by_xpath(
-            '//*[@id="login_submit"]/div/div/input[7]')
+        password = driver.find_element(By.XPATH, '//*[@id="login_submit"]/div/div/input[7]')
         ActionChains(driver).move_to_element(password).click().perform()
 
         password.send_keys(self.password)
 
-        enter = driver.find_element_by_xpath(
-            '//*[@id="install_allow"]')
+        enter = driver.find_element(By.XPATH, '//*[@id="install_allow"]')
         ActionChains(driver).move_to_element(enter).click().perform()
 
         # получаем ключ доступа из новой ссылки
         url = driver.current_url
 
         if "access_token" not in url:
-            enter = driver.find_element_by_xpath(
-                '//*[@id="oauth_wrap_content"]/div[3]/div/div[1]/button[1]')
+            enter = driver.find_element(By.XPATH, '//*[@id="oauth_wrap_content"]/div[3]/div/div[1]/button[1]')
             ActionChains(driver).move_to_element(enter).click().perform()
 
         url = driver.current_url

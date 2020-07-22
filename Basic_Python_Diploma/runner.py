@@ -299,7 +299,6 @@ def give_command():
 
 if __name__ == '__main__':
     auth = check_token()
-
     user0 = vk.User(273251945)
     user1 = vk.User(271138000)
     access_token = input("Введите токен Яндекс.Диска: ")
