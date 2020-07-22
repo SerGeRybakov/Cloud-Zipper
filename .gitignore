@@ -6,11 +6,12 @@
 *access_token1.json
 */biggest_file_info.json
 */biggest_folder_info.json
+downloaded_vk_photos.json
 */test.txt
 */NF/*
 */test/*
 */test1.txt
-__pycache__/*
+*__pycache__/*
 *$py.class
 
 # Distribution / packaging
@@ -31,8 +32,9 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
+
+MANIFEST
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
