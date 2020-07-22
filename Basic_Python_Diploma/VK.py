@@ -1,12 +1,13 @@
 """ Модуль определяет порядок авторизации и дальнейшей работы с сервисом vk.com"""
-from datetime import datetime
 import json
 import os
 import time
+from datetime import datetime
 
 import requests
 from selenium import webdriver
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.by import By
 from tqdm import tqdm
 
 users_list = []
@@ -64,27 +65,24 @@ class VKAPIAuth:
 
         # процесс авторизации
         driver.get(url)
-        login = driver.find_element_by_xpath('//*[@id="login_submit"]/div/div/input[6]')
+        login = driver.find_element(By.XPATH, '//*[@id="login_submit"]/div/div/input[6]')
         ActionChains(driver).move_to_element(login).click().perform()
 
         login.send_keys(self.login)
 
-        password = driver.find_element_by_xpath(
-            '//*[@id="login_submit"]/div/div/input[7]')
+        password = driver.find_element(By.XPATH, '//*[@id="login_submit"]/div/div/input[7]')
         ActionChains(driver).move_to_element(password).click().perform()
 
         password.send_keys(self.password)
 
-        enter = driver.find_element_by_xpath(
-            '//*[@id="install_allow"]')
+        enter = driver.find_element(By.XPATH, '//*[@id="install_allow"]')
         ActionChains(driver).move_to_element(enter).click().perform()
 
         # получаем ключ доступа из новой ссылки
         url = driver.current_url
 
         if "access_token" not in url:
-            enter = driver.find_element_by_xpath(
-                '//*[@id="oauth_wrap_content"]/div[3]/div/div[1]/button[1]')
+            enter = driver.find_element(By.XPATH, '//*[@id="oauth_wrap_content"]/div[3]/div/div[1]/button[1]')
             ActionChains(driver).move_to_element(enter).click().perform()
 
         url = driver.current_url
@@ -100,6 +98,7 @@ class VKAPIAuth:
 
 class User:
     """Класс определяет методы работы с сервисами vk.com"""
+
     def __init__(self, _id: int):
         self.id = _id
         self.URL = 'https://vk.com/id'
@@ -119,6 +118,8 @@ class User:
         }
         user_params = {"user_ids": self.id}
         user_params.update(self.params)
+        # print(requests.get(self.API_URL + self.methods['users']['get'],
+        #              params=user_params).json())
         resp = requests.get(self.API_URL + self.methods['users']['get'],
                             params=user_params).json()['response'][0]
         self.name = resp['first_name'] + ' ' + resp['last_name']
@@ -154,23 +155,26 @@ class User:
         friends_list = tqdm((User(_id).name for _id in ids_list),
                             total=len(ids_list),
                             desc="Получение имён общих друзей")
-        time.sleep(0.5)
-        print(f'{self.name} и {User(friend).name} имеют {len(friends_list)} общих друзей:')
-        print(*friends_list, sep=", ")
-        print('Все они являются сущностями и хранятся в списке "users_list".')
-        print()
+        time.sleep(0.7)
+        print(f'\n{self.name} и {User(friend).name} имеют {len(friends_list)} общих друзей:')
+        print(*friends_list, sep=", ", end="\n\n")
 
     def get_photos(self):
-        """Метод получает ссылки на фотографии пользователя"""
+        """Метод получает ссылки на 5 последних по дате загрузки фотографий из различных альбомах пользователя"""
+
         def get_albums():
             param = {"owner_id": self.id}
             param.update(self.params)
             response = requests.get(self.API_URL + self.methods['photos']['get_albums'],
                                     params=param).json()['response']['items']
             albums = {num: {album["title"]: album["id"]} for num, album in enumerate(response, start=1)}
-            last_key = max(albums.keys()) + 1
-            albums[last_key] = {"Фото профиля": "profile"}
-            return albums
+            try:
+                last_key = max(albums.keys()) + 1
+                albums[last_key] = {"Фото профиля": "profile"}
+                return albums
+            except ValueError:
+                albums[0] = {"Фото профиля": "profile"}
+                return albums
 
         albums = get_albums()
 
