@@ -194,53 +194,40 @@ class YaDisk:
     def download(self, item):
         """Метод скачивает на жесткий диск файл или папку"""
         try:
-            if item.type == "dir":
-                target_folder = os.path.join('downloads', item.path.split('disk:/')[-1])
-            else:
-                target_folder = os.path.join('downloads', item.path.split('disk:/')[-1].split(item.name)[0])
-        except(KeyError, AttributeError):
-            if item["type"] == "dir":
-                target_folder = os.path.join('downloads', item['path'].split('disk:/')[-1])
-            else:
-                target_folder = os.path.join('downloads', item['path'].split('disk:/')[-1].split(item['name'])[0])
-        print(target_folder)
-        os.makedirs(target_folder, exist_ok=True)
-        try:
-            if item.type == 'dir':
-                target_folder = os.path.abspath(target_folder)
-                try:
-                    os.makedirs(target_folder, exist_ok=True)
-                except FileExistsError:
-                    return "Файл уже существует на диске"
-            else:
-                target_folder = os.path.abspath(target_folder)
-                file_to_download = requests.get(item.link)
-                with open(os.path.join(target_folder, item.name), 'wb') as file:
-                    file.write(file_to_download.content)
+            item_name = item.path.split('disk:/')[-1]
+            item_type = item.type
+            item_path = item.path
+            item_title = item.name
         except AttributeError:
-            if item['type'] == 'dir':
-                target_folder = os.path.abspath(target_folder)
-                try:
-                    os.makedirs(target_folder, exist_ok=True)
-                except FileExistsError:
-                    return "Файл уже существует на диске"
-            else:
-                target_folder = os.path.abspath(target_folder)
-                file_to_download = requests.get(item.link)
-                with open(os.path.join(target_folder, item.name), 'wb') as file:
-                    file.write(file_to_download.content)
+            item_name = item['path'].split('disk:/')[-1]
+            item_type = item['type']
+            item_path = item['path']
+            item_title = item['name']
 
-        try:
-            param = {'path': item.path}
-        except (KeyError, AttributeError):
-            param = {'path': item['path']}
+        if item_type == "dir":
+            print(item_type)
+            target_folder = os.path.abspath(os.path.join('downloads', item_name))
+            print(target_folder)
+            try:
+                os.makedirs(target_folder, exist_ok=True)
+            except FileExistsError:
+                return "Файл уже существует на диске"
+        else:
+            print(item_type)
+            target_folder = os.path.abspath(os.path.join('downloads', item_name.split(item_name)[0]))
+            print(target_folder)
+            os.makedirs(target_folder, exist_ok=True)
+            file_to_download = requests.get(item.link)
+            with open(os.path.join(target_folder, item.name), 'wb') as file:
+                file.write(file_to_download.content)
 
+        param = {'path': item_path}
         response = requests.get(self.URL, params=param, headers=self.headers).json()
         try:
             for new_item in response['_embedded']['items']:
-                self._point()
                 if new_item['type'] == 'dir':
                     self.download(new_item)
+
                 else:
                     file_to_download = requests.get(new_item["file"], stream=True)
                     total = new_item["size"]
@@ -254,6 +241,7 @@ class YaDisk:
                         for data in file_to_download.iter_content(chunk_size=1024):
                             size = file.write(data)
                             bar.update(size)
+            return f'Папка "{item_title}" успешно скачана'
 
         except KeyError:
             file_to_download = requests.get(response["file"], stream=True)
@@ -268,7 +256,7 @@ class YaDisk:
                 for data in file_to_download.iter_content(chunk_size=1024):
                     size = file.write(data)
                     bar.update(size)
-        return "Объекты успешно скачаны"
+        return f'Файл "{item_title}" успешно скачан'
 
     def find_biggest(self, obj_type=None):
         """Метод выводит на экран папку или файл с самым большим размером.
