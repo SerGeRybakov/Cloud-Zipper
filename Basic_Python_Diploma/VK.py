@@ -156,7 +156,7 @@ class User:
         time.sleep(0.5)
         friends_list = tqdm((User(_id).name for _id in ids_list),
                             total=len(ids_list),
-                            desc=f"Получение имён общих друзей")
+                            desc="Получение имён общих друзей")
         time.sleep(0.7)
         print(f'\n{self.name} и {User(friend).name} имеют {len(friends_list)} общих друзей:')
         print(*friends_list, sep=", ", end="\n\n")
