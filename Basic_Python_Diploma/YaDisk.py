@@ -49,6 +49,7 @@ from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
 
 def track_upload_progress(pbar):
     prev_value = 0
+
     def callback(monitor):
         nonlocal prev_value
         diff = monitor.bytes_read - prev_value
