@@ -44,6 +44,18 @@ from datetime import datetime
 
 import requests
 from tqdm import tqdm
+from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
+
+
+def track_upload_progress(pbar):
+    prev_value = 0
+    def callback(monitor):
+        nonlocal prev_value
+        diff = monitor.bytes_read - prev_value
+        prev_value = monitor.bytes_read
+        pbar.update(diff)
+
+    return callback
 
 
 class YaDisk:
@@ -364,8 +376,22 @@ class YaDisk:
                 print(param)
                 print(requests.get(self.URL + "/upload", headers=self.headers, params=param).json())
                 upload_url = requests.get(self.URL + "/upload", headers=self.headers, params=param).json()["href"]
-                with open(fullpath, "rb") as file:
-                    requests.put(upload_url, data=file),
+
+                file_size = os.path.getsize(fullpath)
+                pbar = tqdm(total=file_size)
+                callback = track_upload_progress(pbar)
+
+                e = MultipartEncoder(
+                    fields={'file': ('filename', open(fullpath, 'rb'), 'text/plain')}
+                    )
+                m = MultipartEncoderMonitor(e, callback)
+
+                requests.put(
+                    upload_url,
+                    data=m,
+                    headers={'Content-Type': m.content_type}
+                )
+                pbar.close()
                 print(f'Файл "{file}" успешно загружен на Яндекс.Диск\n')
             except KeyError:
                 print(f'Файл "{file}" был ранее загружен на Яндекс.Диск\n')
