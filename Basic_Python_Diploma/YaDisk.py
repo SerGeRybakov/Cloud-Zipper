@@ -48,6 +48,7 @@ from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
 
 
 def track_upload_progress(pbar):
+    """Прогресс-бар для загрузки одиночных файлов на Яндекс.Диск"""
     prev_value = 0
 
     def callback(monitor):
@@ -382,15 +383,15 @@ class YaDisk:
                 pbar = tqdm(total=file_size)
                 callback = track_upload_progress(pbar)
 
-                e = MultipartEncoder(
+                encoder = MultipartEncoder(
                     fields={'file': ('filename', open(fullpath, 'rb'), 'text/plain')}
                     )
-                m = MultipartEncoderMonitor(e, callback)
+                encoder_monitor = MultipartEncoderMonitor(encoder, callback)
 
                 requests.put(
                     upload_url,
-                    data=m,
-                    headers={'Content-Type': m.content_type}
+                    data=encoder_monitor,
+                    headers={'Content-Type': encoder_monitor.content_type}
                 )
                 pbar.close()
                 print(f'Файл "{file}" успешно загружен на Яндекс.Диск\n')
