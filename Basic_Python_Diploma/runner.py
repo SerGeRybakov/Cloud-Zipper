@@ -301,6 +301,6 @@ if __name__ == '__main__':
     auth = check_token()
     user0 = vk.User(273251945)
     user1 = vk.User(271138000)
-    access_token = input("Введите токен Яндекс.Диска: ")
+    access_token = input("Введите токен Яндекс.Диска (получить его можно тут - https://yandex.ru/dev/disk/poligon/): ")
     ya = YaDisk.YaDisk(access_token)
     give_command()
