@@ -151,11 +151,11 @@ class User:
         mutual_friends_params.update(self.params)
         ids_list = requests.get(self.API_URL + self.methods['friends']['getMutual'],
                                 params=mutual_friends_params).json()['response']
-        time.sleep(0.5)
+        time.sleep(1)
         friends_list = tqdm((User(_id).name for _id in ids_list),
                             total=len(ids_list),
                             desc="Получение имён общих друзей")
-        time.sleep(0.7)
+        time.sleep(1)
         print(f'\n{self.name} и {User(friend).name} имеют {len(friends_list)} общих друзей:')
         print(*friends_list, sep=", ", end="\n\n")
 
