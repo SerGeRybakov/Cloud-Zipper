@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@master
 
       - name: Install dependencies
-        run: pip install -r Basic_Python_Diploma/requirements.txt
+        run: pip install -r requirements.txt
 
       - name: Run flake8
         run: flake8 Basic_Python_Diploma
